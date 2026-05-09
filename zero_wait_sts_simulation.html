@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ZERO-WAIT STS — Live Coordination Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep:      #050b15;
+    --bg-panel:     #0d1a2d;
+    --bg-panel-2:   #142540;
+    --border:       #1e3a5f;
+    --border-bright:#2d5a8f;
+    --cyan:         #00d4ff;
+    --cyan-dim:     #0095bb;
+    --amber:        #fbbf24;
+    --green:        #4ade80;
+    --red:          #f87171;
+    --text:         #e2e8f0;
+    --text-dim:     #94a3b8;
+    --text-faint:   #64748b;
+    --grid:         rgba(0,212,255,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at top, #0d2540 0%, transparent 60%),
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 100% 100%, 50px 50px, 50px 50px;
+  }
+
+  .app {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 20px;
+    display: grid;
+    grid-template-rows: auto auto auto auto;
+    gap: 16px;
+  }
+
+  /* ============ HEADER ============ */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 22px;
+    background: linear-gradient(90deg, var(--bg-panel) 0%, var(--bg-panel-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    animation: scan 4s linear infinite;
+  }
+  @keyframes scan {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo-mark {
+    width: 38px; height: 38px;
+    border: 2px solid var(--cyan);
+    display: grid;
+    place-items: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--cyan);
+    font-size: 20px;
+    letter-spacing: 1px;
+    position: relative;
+  }
+  .logo-mark::before, .logo-mark::after {
+    content: ''; position: absolute;
+    width: 6px; height: 6px;
+    border: 2px solid var(--cyan);
+  }
+  .logo-mark::before { top: -4px; left: -4px; border-right: none; border-bottom: none; }
+  .logo-mark::after { bottom: -4px; right: -4px; border-left: none; border-top: none; }
+
+  .title {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 3px;
+  }
+  .title .accent { color: var(--cyan); }
+  .subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .system-status {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .stat-pill .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+  .stat-pill .label { color: var(--text-faint); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-pill .val { color: var(--text); font-weight: 700; }
+
+  /* ============ PORT VIEW ============ */
+  .port-view {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .port-view svg { display: block; width: 100%; height: auto; }
+
+  .corner-tag {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--cyan);
+    text-transform: uppercase;
+    padding: 4px 8px;
+    background: rgba(5, 11, 21, 0.7);
+    border: 1px solid var(--border-bright);
+  }
+  .corner-tag.tl { top: 12px; left: 12px; }
+  .corner-tag.tr { top: 12px; right: 12px; }
+  .corner-tag.bl { bottom: 12px; left: 12px; }
+
+  /* Phase narrator overlay */
+  .narrator {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(5, 11, 21, 0.92);
+    border: 1px solid var(--cyan);
+    padding: 10px 22px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    min-width: 320px;
+    text-align: center;
+    box-shadow: 0 0 24px rgba(0, 212, 255, 0.3);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .narrator .phase-num {
+    color: var(--text-dim);
+    font-size: 11px;
+    display: block;
+    margin-bottom: 2px;
+    letter-spacing: 4px;
+  }
+
+  /* ============ BOTTOM GRID ============ */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 16px;
+  }
+
+  /* Operator Dashboard */
+  .dashboard {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dash-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .dash-mode {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--green);
+    letter-spacing: 2px;
+    padding: 3px 8px;
+    border: 1px solid var(--green);
+    background: rgba(74, 222, 128, 0.08);
+  }
+  .dash-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .panel {
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    padding: 12px;
+    position: relative;
+    min-height: 180px;
+  }
+  .panel-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .status-light {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-left: 6px;
+  }
+  .light-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .light-amber { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .light-red { background: var(--red); box-shadow: 0 0 8px var(--red); animation: pulse-dot 0.6s infinite; }
+
+  .move-id {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 38px;
+    color: var(--cyan);
+    line-height: 1;
+    letter-spacing: 2px;
+  }
+  .move-id-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .data-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    border-bottom: 1px dashed var(--border);
+  }
+  .data-row:last-child { border-bottom: none; }
+  .data-row .k { color: var(--text-faint); letter-spacing: 1px; text-transform: uppercase; font-size: 10px; }
+  .data-row .v { color: var(--text); font-weight: 500; }
+  .data-row .v.cyan { color: var(--cyan); }
+  .data-row .v.green { color: var(--green); }
+  .data-row .v.amber { color: var(--amber); }
+
+  .container-icon {
+    height: 28px;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .container-icon .box {
+    height: 100%;
+    background: linear-gradient(180deg, #ef4444, #b91c1c);
+    border: 1px solid #7f1d1d;
+    position: relative;
+  }
+  .container-icon .box.blue { background: linear-gradient(180deg, #3b82f6, #1d4ed8); border-color: #1e3a8a; }
+  .container-icon .box.green { background: linear-gradient(180deg, #10b981, #047857); border-color: #064e3b; }
+  .container-icon .twin { display: flex; gap: 2px; height: 100%; }
+  .container-size-20 { width: 36px; }
+  .container-size-40 { width: 72px; }
+  .container-size-45 { width: 80px; }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    margin-top: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan-dim), var(--cyan));
+    width: 0%;
+    transition: width 0.3s linear;
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  /* Spreader Cam Block */
+  .cam-block {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .cam-viewport {
+    aspect-ratio: 1.3 / 1;
+    background: #000;
+    border: 1px solid var(--border-bright);
+    position: relative;
+    overflow: hidden;
+  }
+  .cam-viewport svg { display: block; width: 100%; height: 100%; }
+
+  .cam-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--green);
+    font-size: 10px;
+  }
+  .cam-corner {
+    position: absolute;
+    width: 22px; height: 22px;
+  }
+  .cam-corner::before, .cam-corner::after {
+    content: ''; position: absolute;
+    background: var(--green);
+  }
+  .cam-corner.tl { top: 8px; left: 8px; }
+  .cam-corner.tl::before { width: 22px; height: 2px; top: 0; left: 0; }
+  .cam-corner.tl::after { width: 2px; height: 22px; top: 0; left: 0; }
+  .cam-corner.tr { top: 8px; right: 8px; }
+  .cam-corner.tr::before { width: 22px; height: 2px; top: 0; right: 0; }
+  .cam-corner.tr::after { width: 2px; height: 22px; top: 0; right: 0; }
+  .cam-corner.bl { bottom: 8px; left: 8px; }
+  .cam-corner.bl::before { width: 22px; height: 2px; bottom: 0; left: 0; }
+  .cam-corner.bl::after { width: 2px; height: 22px; bottom: 0; left: 0; }
+  .cam-corner.br { bottom: 8px; right: 8px; }
+  .cam-corner.br::before { width: 22px; height: 2px; bottom: 0; right: 0; }
+  .cam-corner.br::after { width: 2px; height: 22px; bottom: 0; right: 0; }
+
+  .cam-text-tl { position: absolute; top: 12px; left: 36px; }
+  .cam-text-tr { position: absolute; top: 12px; right: 36px; text-align: right; }
+  .cam-text-bl { position: absolute; bottom: 12px; left: 36px; }
+  .cam-text-br { position: absolute; bottom: 12px; right: 36px; text-align: right; }
+
+  .rec-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--red);
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse-dot 1s infinite;
+    vertical-align: middle;
+  }
+
+  /* Proximity sensor strip */
+  .proximity {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .prox-bar-wrap {
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+  }
+  .prox-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .prox-bar {
+    height: 22px;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .prox-segments {
+    display: flex;
+    height: 100%;
+    gap: 2px;
+    padding: 2px;
+  }
+  .prox-segments .seg {
+    flex: 1;
+    background: var(--border);
+    transition: background 0.15s ease;
+  }
+  .prox-segments .seg.on-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .prox-segments .seg.on-amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .prox-segments .seg.on-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  .prox-value {
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .prox-value .num { color: var(--cyan); font-weight: 700; font-size: 16px; }
+  .prox-value .unit { color: var(--text-faint); }
+
+  .beep-indicator {
+    width: 60px;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    gap: 4px;
+  }
+  .beep-icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.15s;
+    position: relative;
+  }
+  .beep-icon.active {
+    background: var(--red);
+    box-shadow: 0 0 12px var(--red), 0 0 24px var(--red);
+  }
+  .beep-icon.active::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid var(--red);
+    animation: beep-ring 0.4s ease-out;
+  }
+  @keyframes beep-ring {
+    0% { opacity: 1; transform: scale(0.8); }
+    100% { opacity: 0; transform: scale(1.8); }
+  }
+  .beep-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+  }
+
+  /* ============ FOOTER / CONTROLS ============ */
+  .controls {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 18px;
+    display: grid;
+    grid-template-columns: 2fr auto auto;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .timeline {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .timeline-step {
+    flex: 1;
+    height: 32px;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    display: grid;
+    place-items: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0 4px;
+    transition: all 0.3s;
+    position: relative;
+  }
+  .timeline-step.active {
+    background: rgba(0, 212, 255, 0.15);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+  }
+  .timeline-step.done {
+    border-color: var(--cyan-dim);
+    color: var(--cyan-dim);
+  }
+
+  .ctrl-buttons {
+    display: flex;
+    gap: 6px;
+  }
+  .btn {
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    padding: 8px 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover {
+    background: var(--border);
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
+  .btn.primary {
+    border-color: var(--cyan);
+    color: var(--cyan);
+  }
+  .btn.primary:hover {
+    background: var(--cyan);
+    color: var(--bg-deep);
+  }
+
+  .speed-control {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+  }
+  .speed-btn {
+    width: 28px; height: 28px;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 11px;
+  }
+  .speed-btn.active { border-color: var(--cyan); color: var(--cyan); }
+
+  /* Pre-staged badge that animates in */
+  .prestage-badge {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: var(--amber);
+    color: var(--bg-deep);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 9px;
+    padding: 3px 7px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .prestage-badge.show { opacity: 1; }
+
+  /* truck arrival badge */
+  .arrival-badge {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: var(--green);
+    color: var(--bg-deep);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 9px;
+    padding: 3px 7px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 1100px) {
+    .bottom-grid { grid-template-columns: 1fr; }
+    .dash-panels { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ HEADER ============ -->
+  <header class="header">
+    <div class="brand">
+      <div class="logo-mark">Z</div>
+      <div>
+        <div class="title">ZERO<span class="accent">·</span>WAIT <span class="accent">STS</span></div>
+        <div class="subtitle">Predictive Coordination Layer · Live Simulation</div>
+      </div>
+    </div>
+    <div class="system-status">
+      <div class="stat-pill">
+        <span class="dot"></span>
+        <span class="label">System</span>
+        <span class="val">COORDINATED</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">Wind</span>
+        <span class="val" id="windRead">8 m/s</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">Crane</span>
+        <span class="val">STS-04</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">Vessel</span>
+        <span class="val">MV NORDIC PEAK</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ PORT VIEW ============ -->
+  <div class="port-view">
+    <div class="corner-tag tl">CAM 01 · QUAY-SIDE · LIVE</div>
+    <div class="corner-tag tr" id="clockTag">23:14:08 UTC</div>
+    <div class="corner-tag bl">BERTH 04 · STS-04</div>
+
+    <svg viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Sky gradient -->
+        <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0a1830" />
+          <stop offset="60%" stop-color="#1a3050" />
+          <stop offset="100%" stop-color="#243a5c" />
+        </linearGradient>
+
+        <!-- Water gradient -->
+        <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0a1c2e" />
+          <stop offset="100%" stop-color="#020812" />
+        </linearGradient>
+
+        <!-- Ship hull gradient -->
+        <linearGradient id="hullGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#1e2a3d" />
+          <stop offset="100%" stop-color="#0f1a2d" />
+        </linearGradient>
+
+        <!-- Quay -->
+        <linearGradient id="quayGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2a3144" />
+          <stop offset="100%" stop-color="#151b28" />
+        </linearGradient>
+
+        <!-- Crane structure -->
+        <linearGradient id="craneGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#dc2626" />
+          <stop offset="100%" stop-color="#7f1d1d" />
+        </linearGradient>
+
+        <!-- Container gradients (variety) -->
+        <linearGradient id="contRed" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ef4444" /><stop offset="100%" stop-color="#991b1b" />
+        </linearGradient>
+        <linearGradient id="contBlue" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3b82f6" /><stop offset="100%" stop-color="#1e3a8a" />
+        </linearGradient>
+        <linearGradient id="contGreen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#10b981" /><stop offset="100%" stop-color="#064e3b" />
+        </linearGradient>
+        <linearGradient id="contAmber" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#f59e0b" /><stop offset="100%" stop-color="#78350f" />
+        </linearGradient>
+        <linearGradient id="contPurple" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#8b5cf6" /><stop offset="100%" stop-color="#4c1d95" />
+        </linearGradient>
+
+        <!-- Truck -->
+        <linearGradient id="truckGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fde047" /><stop offset="100%" stop-color="#a16207" />
+        </linearGradient>
+
+        <!-- Glow filter for highlights -->
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+
+        <!-- Reusable container symbol -->
+        <symbol id="container" viewBox="0 0 100 50" overflow="visible">
+          <rect width="100" height="50" fill="currentColor" />
+          <rect width="100" height="50" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.5" />
+          <!-- corrugation -->
+          <g stroke="rgba(0,0,0,0.25)" stroke-width="0.7">
+            <line x1="6" y1="3" x2="6" y2="47" />
+            <line x1="14" y1="3" x2="14" y2="47" />
+            <line x1="22" y1="3" x2="22" y2="47" />
+            <line x1="30" y1="3" x2="30" y2="47" />
+            <line x1="38" y1="3" x2="38" y2="47" />
+            <line x1="46" y1="3" x2="46" y2="47" />
+            <line x1="54" y1="3" x2="54" y2="47" />
+            <line x1="62" y1="3" x2="62" y2="47" />
+            <line x1="70" y1="3" x2="70" y2="47" />
+            <line x1="78" y1="3" x2="78" y2="47" />
+            <line x1="86" y1="3" x2="86" y2="47" />
+            <line x1="94" y1="3" x2="94" y2="47" />
+          </g>
+          <!-- top/bottom rails -->
+          <rect y="0" width="100" height="3" fill="rgba(255,255,255,0.15)" />
+          <rect y="47" width="100" height="3" fill="rgba(0,0,0,0.3)" />
+          <!-- corner castings -->
+          <rect x="0" y="0" width="4" height="4" fill="rgba(0,0,0,0.5)" />
+          <rect x="96" y="0" width="4" height="4" fill="rgba(0,0,0,0.5)" />
+          <rect x="0" y="46" width="4" height="4" fill="rgba(0,0,0,0.5)" />
+          <rect x="96" y="46" width="4" height="4" fill="rgba(0,0,0,0.5)" />
+        </symbol>
+
+        <!-- Truck with chassis -->
+        <symbol id="ITV" viewBox="0 0 220 60" overflow="visible">
+          <!-- chassis (long flat bed) -->
+          <rect x="55" y="35" width="160" height="10" fill="#374151" stroke="#1f2937" stroke-width="1"/>
+          <!-- twist locks on chassis -->
+          <rect x="60" y="32" width="3" height="4" fill="#f59e0b"/>
+          <rect x="208" y="32" width="3" height="4" fill="#f59e0b"/>
+          <!-- cab -->
+          <path d="M 5 45 L 5 18 Q 5 10 13 10 L 40 10 L 50 28 L 50 45 Z" fill="url(#truckGrad)" stroke="#78350f" stroke-width="1"/>
+          <!-- windshield -->
+          <path d="M 15 14 L 38 14 L 47 28 L 15 28 Z" fill="#1e3a5f" opacity="0.7"/>
+          <!-- wheels -->
+          <circle cx="22" cy="48" r="7" fill="#111827" stroke="#374151" stroke-width="1.5"/>
+          <circle cx="22" cy="48" r="2.5" fill="#374151"/>
+          <circle cx="42" cy="48" r="7" fill="#111827" stroke="#374151" stroke-width="1.5"/>
+          <circle cx="42" cy="48" r="2.5" fill="#374151"/>
+          <circle cx="180" cy="48" r="7" fill="#111827" stroke="#374151" stroke-width="1.5"/>
+          <circle cx="180" cy="48" r="2.5" fill="#374151"/>
+          <circle cx="200" cy="48" r="7" fill="#111827" stroke="#374151" stroke-width="1.5"/>
+          <circle cx="200" cy="48" r="2.5" fill="#374151"/>
+          <!-- headlight -->
+          <rect x="7" y="38" width="3" height="4" fill="#fde047"/>
+        </symbol>
+      </defs>
+
+      <!-- Sky -->
+      <rect x="0" y="0" width="1600" height="500" fill="url(#skyGrad)" />
+
+      <!-- Distant city/cranes silhouette -->
+      <g opacity="0.25">
+        <rect x="1100" y="380" width="80" height="80" fill="#0a1628"/>
+        <rect x="1200" y="360" width="60" height="100" fill="#0a1628"/>
+        <rect x="1280" y="395" width="100" height="65" fill="#0a1628"/>
+        <rect x="1400" y="370" width="70" height="90" fill="#0a1628"/>
+        <rect x="1490" y="385" width="90" height="75" fill="#0a1628"/>
+      </g>
+
+      <!-- Stars / lights faraway -->
+      <g fill="#fbbf24" opacity="0.6">
+        <circle cx="120" cy="50" r="0.8"/>
+        <circle cx="300" cy="80" r="0.6"/>
+        <circle cx="500" cy="40" r="1"/>
+        <circle cx="780" cy="65" r="0.8"/>
+        <circle cx="1100" cy="55" r="0.6"/>
+        <circle cx="1450" cy="90" r="0.8"/>
+        <circle cx="200" cy="100" r="0.5"/>
+        <circle cx="900" cy="110" r="0.5"/>
+      </g>
+
+      <!-- Container yard background (left, behind crane) -->
+      <g opacity="0.5">
+        <!-- back row -->
+        <use href="#container" x="20" y="370" width="80" height="38" color="#3b82f6"/>
+        <use href="#container" x="100" y="370" width="80" height="38" color="#ef4444"/>
+        <use href="#container" x="180" y="370" width="80" height="38" color="#10b981"/>
+        <use href="#container" x="260" y="370" width="80" height="38" color="#f59e0b"/>
+        <use href="#container" x="20" y="332" width="80" height="38" color="#8b5cf6"/>
+        <use href="#container" x="100" y="332" width="80" height="38" color="#10b981"/>
+        <use href="#container" x="180" y="332" width="80" height="38" color="#f59e0b"/>
+        <use href="#container" x="260" y="332" width="80" height="38" color="#3b82f6"/>
+        <use href="#container" x="20" y="294" width="80" height="38" color="#ef4444"/>
+        <use href="#container" x="100" y="294" width="80" height="38" color="#8b5cf6"/>
+        <use href="#container" x="180" y="294" width="80" height="38" color="#3b82f6"/>
+      </g>
+
+      <!-- Water -->
+      <rect x="0" y="500" width="1600" height="100" fill="url(#waterGrad)" />
+      <!-- water ripples -->
+      <g stroke="#1e3a5f" stroke-width="1" opacity="0.5" fill="none">
+        <path d="M 1000 530 Q 1020 525, 1040 530 T 1080 530 T 1120 530"/>
+        <path d="M 1200 545 Q 1220 540, 1240 545 T 1280 545 T 1320 545"/>
+        <path d="M 1400 560 Q 1420 555, 1440 560 T 1480 560 T 1520 560"/>
+        <path d="M 1100 570 Q 1120 565, 1140 570 T 1180 570 T 1220 570"/>
+      </g>
+
+      <!-- ====== CONTAINER SHIP (right side) ====== -->
+      <g id="ship">
+        <!-- Bay grid (containers stacked on deck) -->
+        <g id="shipBays">
+          <!-- Row 1 (top, partial - source containers) -->
+          <use href="#container" x="950" y="290" width="80" height="38" color="#ef4444" id="srcContainer"/>
+          <use href="#container" x="1030" y="290" width="80" height="38" color="#3b82f6"/>
+          <use href="#container" x="1110" y="290" width="80" height="38" color="#10b981"/>
+          <use href="#container" x="1190" y="290" width="80" height="38" color="#f59e0b"/>
+          <use href="#container" x="1270" y="290" width="80" height="38" color="#8b5cf6"/>
+
+          <!-- Row 2 -->
+          <use href="#container" x="950" y="328" width="80" height="38" color="#3b82f6"/>
+          <use href="#container" x="1030" y="328" width="80" height="38" color="#10b981"/>
+          <use href="#container" x="1110" y="328" width="80" height="38" color="#ef4444"/>
+          <use href="#container" x="1190" y="328" width="80" height="38" color="#8b5cf6"/>
+          <use href="#container" x="1270" y="328" width="80" height="38" color="#f59e0b"/>
+          <use href="#container" x="1350" y="328" width="80" height="38" color="#3b82f6"/>
+
+          <!-- Row 3 -->
+          <use href="#container" x="950" y="366" width="80" height="38" color="#10b981"/>
+          <use href="#container" x="1030" y="366" width="80" height="38" color="#f59e0b"/>
+          <use href="#container" x="1110" y="366" width="80" height="38" color="#8b5cf6"/>
+          <use href="#container" x="1190" y="366" width="80" height="38" color="#ef4444"/>
+          <use href="#container" x="1270" y="366" width="80" height="38" color="#3b82f6"/>
+          <use href="#container" x="1350" y="366" width="80" height="38" color="#10b981"/>
+          <use href="#container" x="1430" y="366" width="80" height="38" color="#f59e0b"/>
+        </g>
+
+        <!-- Hull -->
+        <path d="M 920 404 L 1530 404 L 1510 500 L 940 500 Z" fill="url(#hullGrad)" stroke="#0a1628" stroke-width="2"/>
+        <!-- waterline accent -->
+        <line x1="940" y1="490" x2="1510" y2="490" stroke="#dc2626" stroke-width="2"/>
+        <!-- bridge / superstructure -->
+        <rect x="1440" y="340" width="60" height="64" fill="#1f2937" stroke="#0a1628" stroke-width="1"/>
+        <rect x="1450" y="350" width="40" height="6" fill="#fde047" opacity="0.6"/>
+        <rect x="1450" y="362" width="40" height="6" fill="#fde047" opacity="0.6"/>
+        <rect x="1450" y="374" width="40" height="6" fill="#fde047" opacity="0.6"/>
+        <!-- portholes on hull -->
+        <g fill="#fde047" opacity="0.7">
+          <circle cx="970" cy="430" r="2"/>
+          <circle cx="1000" cy="430" r="2"/>
+          <circle cx="1030" cy="430" r="2"/>
+          <circle cx="1060" cy="430" r="2"/>
+          <circle cx="1090" cy="430" r="2"/>
+          <circle cx="1120" cy="430" r="2"/>
+          <circle cx="1150" cy="430" r="2"/>
+          <circle cx="1180" cy="430" r="2"/>
+          <circle cx="1210" cy="430" r="2"/>
+          <circle cx="1240" cy="430" r="2"/>
+          <circle cx="1270" cy="430" r="2"/>
+          <circle cx="1300" cy="430" r="2"/>
+        </g>
+        <!-- ship label -->
+        <text x="1100" y="465" fill="#94a3b8" font-family="Rajdhani" font-size="14" font-weight="600" letter-spacing="3">MV  NORDIC  PEAK</text>
+      </g>
+
+      <!-- ====== QUAY ====== -->
+      <g id="quay">
+        <rect x="0" y="490" width="920" height="110" fill="url(#quayGrad)"/>
+        <!-- bollards -->
+        <g fill="#1f2937">
+          <rect x="900" y="486" width="6" height="10"/>
+          <rect x="850" y="486" width="6" height="10"/>
+          <rect x="800" y="486" width="6" height="10"/>
+        </g>
+        <!-- quay edge highlight -->
+        <line x1="0" y1="490" x2="920" y2="490" stroke="#fbbf24" stroke-width="1.5" opacity="0.5"/>
+        <!-- truck lane lines -->
+        <line x1="0" y1="555" x2="920" y2="555" stroke="#fbbf24" stroke-width="1" opacity="0.3" stroke-dasharray="10 6"/>
+        <!-- lane labels -->
+        <text x="50" y="582" fill="#fbbf24" font-family="JetBrains Mono" font-size="11" opacity="0.6" letter-spacing="2">LANE 02</text>
+        <text x="50" y="540" fill="#fbbf24" font-family="JetBrains Mono" font-size="11" opacity="0.6" letter-spacing="2">LANE 01</text>
+      </g>
+
+      <!-- ====== CRANE STRUCTURE (red, drawn before trolley/spreader) ====== -->
+      <g id="crane">
+        <!-- Crane "rails" on quay -->
+        <line x1="100" y1="492" x2="900" y2="492" stroke="#fbbf24" stroke-width="2" opacity="0.4"/>
+
+        <!-- Land-side leg (left) -->
+        <g>
+          <rect x="195" y="100" width="14" height="392" fill="url(#craneGrad)"/>
+          <rect x="195" y="100" width="14" height="392" fill="none" stroke="#7f1d1d" stroke-width="1"/>
+          <!-- diagonal brace -->
+          <line x1="202" y1="490" x2="220" y2="100" stroke="#dc2626" stroke-width="3"/>
+          <!-- foot -->
+          <rect x="180" y="488" width="44" height="6" fill="#7f1d1d"/>
+          <!-- wheels at base -->
+          <circle cx="190" cy="494" r="5" fill="#1f2937"/>
+          <circle cx="214" cy="494" r="5" fill="#1f2937"/>
+        </g>
+
+        <!-- Water-side leg (right) -->
+        <g>
+          <rect x="755" y="100" width="14" height="392" fill="url(#craneGrad)"/>
+          <rect x="755" y="100" width="14" height="392" fill="none" stroke="#7f1d1d" stroke-width="1"/>
+          <line x1="762" y1="490" x2="744" y2="100" stroke="#dc2626" stroke-width="3"/>
+          <rect x="740" y="488" width="44" height="6" fill="#7f1d1d"/>
+          <circle cx="750" cy="494" r="5" fill="#1f2937"/>
+          <circle cx="774" cy="494" r="5" fill="#1f2937"/>
+        </g>
+
+        <!-- A-frame top truss between legs -->
+        <g stroke="#dc2626" stroke-width="2" fill="none">
+          <line x1="202" y1="100" x2="482" y2="60"/>
+          <line x1="762" y1="100" x2="482" y2="60"/>
+          <line x1="482" y1="60" x2="482" y2="100"/>
+          <line x1="340" y1="80" x2="340" y2="100"/>
+          <line x1="624" y1="80" x2="624" y2="100"/>
+        </g>
+
+        <!-- Main beam / boom (extends from crane out over ship) -->
+        <rect x="100" y="100" width="1400" height="22" fill="url(#craneGrad)" stroke="#7f1d1d" stroke-width="1"/>
+        <!-- Beam truss pattern -->
+        <g stroke="#7f1d1d" stroke-width="1" opacity="0.7">
+          <line x1="100" y1="100" x2="120" y2="122"/>
+          <line x1="140" y1="100" x2="120" y2="122"/>
+          <line x1="140" y1="100" x2="160" y2="122"/>
+          <line x1="180" y1="100" x2="160" y2="122"/>
+          <line x1="180" y1="100" x2="200" y2="122"/>
+        </g>
+        <!-- machinery house at top (red) -->
+        <rect x="450" y="60" width="64" height="44" fill="#7f1d1d" stroke="#450a0a" stroke-width="1"/>
+        <rect x="458" y="68" width="48" height="6" fill="#fde047" opacity="0.5"/>
+
+        <!-- Operator cabin (under the beam, near the trolley resting position) -->
+        <g id="operatorCabin">
+          <rect x="780" y="125" width="36" height="30" fill="#1e3a5f" stroke="#0a1628" stroke-width="1"/>
+          <rect x="784" y="129" width="28" height="18" fill="#fde047" opacity="0.4"/>
+          <!-- silhouette of operator -->
+          <circle cx="798" cy="138" r="3" fill="#0a1628"/>
+          <rect x="794" y="141" width="8" height="5" fill="#0a1628"/>
+        </g>
+
+        <!-- Crane name plate on leg -->
+        <text x="222" y="200" fill="#fde047" font-family="Rajdhani" font-size="14" font-weight="700" letter-spacing="2" opacity="0.8">STS-04</text>
+
+        <!-- ====== TROLLEY (animated horizontally) ====== -->
+        <g id="trolley" transform="translate(0,0)">
+          <!-- trolley body -->
+          <rect x="-50" y="100" width="100" height="32" fill="#1f2937" stroke="#0a1628" stroke-width="1"/>
+          <rect x="-46" y="104" width="92" height="6" fill="#fbbf24" opacity="0.4"/>
+          <!-- trolley wheels (run on top of the beam) -->
+          <circle cx="-35" cy="100" r="5" fill="#374151"/>
+          <circle cx="35" cy="100" r="5" fill="#374151"/>
+          <!-- mounting -->
+          <rect x="-6" y="130" width="12" height="6" fill="#0a1628"/>
+
+          <!-- ====== HOIST CABLES + SPREADER (animated vertically) ====== -->
+          <g id="spreaderAssembly">
+            <!-- cables (4 visible in side view as 2 lines) -->
+            <line id="cableL" x1="-30" y1="135" x2="-30" y2="135" stroke="#94a3b8" stroke-width="1.5"/>
+            <line id="cableR" x1="30" y1="135" x2="30" y2="135" stroke="#94a3b8" stroke-width="1.5"/>
+            <line id="cableLM" x1="-15" y1="135" x2="-15" y2="135" stroke="#64748b" stroke-width="1"/>
+            <line id="cableRM" x1="15" y1="135" x2="15" y2="135" stroke="#64748b" stroke-width="1"/>
+
+            <!-- spreader bar (positioned via JS) -->
+            <g id="spreader" transform="translate(0,0)">
+              <!-- main beam -->
+              <rect x="-50" y="0" width="100" height="14" fill="#fbbf24" stroke="#78350f" stroke-width="1"/>
+              <rect x="-50" y="0" width="100" height="3" fill="#fde047"/>
+              <!-- end caps with twistlocks -->
+              <rect x="-54" y="-2" width="8" height="18" fill="#78350f"/>
+              <rect x="46" y="-2" width="8" height="18" fill="#78350f"/>
+              <!-- twistlock pins -->
+              <rect x="-50" y="14" width="3" height="4" fill="#1f2937"/>
+              <rect x="47" y="14" width="3" height="4" fill="#1f2937"/>
+              <!-- camera bump (centered, this is what gives the cam view) -->
+              <rect x="-6" y="14" width="12" height="6" fill="#1f2937" stroke="#0a1628" stroke-width="0.5"/>
+              <circle cx="0" cy="22" r="2.5" fill="#00d4ff" opacity="0.9">
+                <animate attributeName="opacity" values="0.9;0.4;0.9" dur="1.5s" repeatCount="indefinite"/>
+              </circle>
+              <!-- proximity sensor LEDs at ends -->
+              <circle cx="-44" cy="20" r="1.5" fill="#4ade80"/>
+              <circle cx="44" cy="20" r="1.5" fill="#4ade80"/>
+
+              <!-- Container being carried (toggled visible) -->
+              <g id="carriedContainer" opacity="0">
+                <use href="#container" x="-50" y="20" width="100" height="50" color="#ef4444"/>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <!-- ====== TRUCKS (3 instances at different positions) ====== -->
+      <!-- Truck A (loading position, under the crane) -->
+      <g id="truckA" transform="translate(160,535)">
+        <use href="#ITV" width="220" height="60"/>
+        <!-- ID badge -->
+        <rect x="60" y="0" width="50" height="14" fill="#0a1628" stroke="#00d4ff" stroke-width="1"/>
+        <text x="85" y="11" fill="#00d4ff" font-family="JetBrains Mono" font-size="9" text-anchor="middle" font-weight="700">ITV-108</text>
+      </g>
+
+      <!-- Truck B (approaching from off-screen left, the "next" vehicle) -->
+      <g id="truckB" transform="translate(-300,535)">
+        <use href="#ITV" width="220" height="60"/>
+        <rect x="60" y="0" width="50" height="14" fill="#0a1628" stroke="#fbbf24" stroke-width="1"/>
+        <text x="85" y="11" fill="#fbbf24" font-family="JetBrains Mono" font-size="9" text-anchor="middle" font-weight="700">ITV-115</text>
+        <!-- ETA label above -->
+        <g id="truckBEta">
+          <rect x="40" y="-22" width="90" height="16" fill="#0a1628" stroke="#fbbf24" stroke-width="1"/>
+          <text x="85" y="-10" fill="#fbbf24" font-family="JetBrains Mono" font-size="9" text-anchor="middle">ETA 14s</text>
+        </g>
+      </g>
+
+      <!-- Truck C (queueing, far back) -->
+      <g id="truckC" transform="translate(-700,535)" opacity="0.7">
+        <use href="#ITV" width="220" height="60"/>
+        <rect x="60" y="0" width="50" height="14" fill="#0a1628" stroke="#64748b" stroke-width="1"/>
+        <text x="85" y="11" fill="#94a3b8" font-family="JetBrains Mono" font-size="9" text-anchor="middle" font-weight="700">ITV-122</text>
+      </g>
+
+      <!-- ====== MICRO-SLOT TARGET MARKER (animated) ====== -->
+      <g id="microSlot" opacity="0">
+        <rect x="180" y="525" width="220" height="65" fill="none" stroke="#00d4ff" stroke-width="2" stroke-dasharray="6 4">
+          <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1s" repeatCount="indefinite"/>
+        </rect>
+        <text x="290" y="520" fill="#00d4ff" font-family="JetBrains Mono" font-size="11" text-anchor="middle" font-weight="700" letter-spacing="2">MICRO-SLOT · LANE 02 · SLOT B</text>
+      </g>
+
+      <!-- ====== DATA OVERLAYS ====== -->
+      <!-- Coordination engine "thought bubble" showing pre-staging -->
+      <g id="prestageOverlay" opacity="0" transform="translate(450, 180)">
+        <rect x="0" y="0" width="240" height="64" fill="rgba(5,11,21,0.92)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="12" y="18" fill="#fbbf24" font-family="Rajdhani" font-size="11" font-weight="700" letter-spacing="2">PRE-STAGING NEXT MOVE</text>
+        <text x="12" y="36" fill="#e2e8f0" font-family="JetBrains Mono" font-size="10">Move 43 evaluated · 142ms</text>
+        <text x="12" y="50" fill="#e2e8f0" font-family="JetBrains Mono" font-size="10">ITV-115 dispatched to Slot B</text>
+      </g>
+
+      <!-- Sensor cone visualization (from spreader downward, only when aligning/lowering) -->
+      <g id="sensorCone" opacity="0">
+        <path id="sensorConePath" d="M 0 0 L 0 0 L 0 0 Z" fill="rgba(0,212,255,0.08)" stroke="#00d4ff" stroke-width="1" stroke-dasharray="3 3"/>
+      </g>
+    </svg>
+
+    <div class="narrator" id="narrator">
+      <span class="phase-num">PHASE 01 / 09</span>
+      <span id="narratorText">Initializing system...</span>
+    </div>
+  </div>
+
+  <!-- ============ BOTTOM GRID: DASHBOARD + CAM ============ -->
+  <div class="bottom-grid">
+
+    <!-- Operator Dashboard -->
+    <div class="dashboard">
+      <div class="dash-header">
+        <div class="dash-title">Operator Console · STS-04</div>
+        <div class="dash-mode">● COORDINATED MODE</div>
+      </div>
+
+      <div class="dash-panels">
+
+        <!-- Active Move -->
+        <div class="panel">
+          <div class="panel-label">
+            ACTIVE MOVE
+            <span class="status-light light-green" id="activeLight"></span>
+          </div>
+          <div class="move-id-label">MOVE</div>
+          <div class="move-id" id="activeMoveId">42</div>
+          <div class="container-icon">
+            <div class="box container-size-40" id="activeContainer"></div>
+          </div>
+          <div class="data-row"><span class="k">Status</span><span class="v cyan" id="activeStatus">HOISTING</span></div>
+          <div class="data-row"><span class="k">From</span><span class="v" id="activeFrom">BAY 02 · ROW 04</span></div>
+          <div class="data-row"><span class="k">Weight</span><span class="v" id="activeWeight">28.4 t</span></div>
+          <div class="data-row"><span class="k">ETC</span><span class="v amber" id="activeEtc">7 s</span></div>
+          <div class="progress-bar"><div class="fill" id="activeProgress"></div></div>
+        </div>
+
+        <!-- Next Move (Pre-staged) -->
+        <div class="panel">
+          <div class="panel-label">
+            NEXT MOVE · PRE-STAGED
+            <span class="status-light light-amber" id="nextLight"></span>
+          </div>
+          <div class="prestage-badge" id="prestageBadge">READY</div>
+          <div class="move-id-label">MOVE</div>
+          <div class="move-id" id="nextMoveId">43</div>
+          <div class="container-icon">
+            <div class="twin">
+              <div class="box blue container-size-20"></div>
+              <div class="box green container-size-20"></div>
+            </div>
+          </div>
+          <div class="data-row"><span class="k">Type</span><span class="v amber">TWIN-LIFT 2×20'</span></div>
+          <div class="data-row"><span class="k">From</span><span class="v">BAY 02 · ROW 06</span></div>
+          <div class="data-row"><span class="k">Weight</span><span class="v">42.5 t</span></div>
+          <div class="data-row"><span class="k">Vehicle</span><span class="v cyan" id="nextVehicle">ITV-115</span></div>
+        </div>
+
+        <!-- Vehicle Status -->
+        <div class="panel">
+          <div class="panel-label">
+            VEHICLE STATUS
+            <span class="status-light light-green" id="vehLight"></span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="border:1px solid var(--border); padding:8px; background:rgba(0,0,0,0.2)">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--cyan); font-weight:700; letter-spacing:1px">ITV-108</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--green); margin-top:2px">ARRIVED · LANE 02 · SLOT B</div>
+            </div>
+            <div style="border:1px solid var(--border); padding:8px; background:rgba(0,0,0,0.2)">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber); font-weight:700; letter-spacing:1px">ITV-115</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dim); margin-top:2px">EN-ROUTE · ETA <span id="itvEta">14</span>s</div>
+            </div>
+            <div style="border:1px solid var(--border); padding:8px; background:rgba(0,0,0,0.15); opacity:0.6">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-dim); font-weight:700; letter-spacing:1px">FALLBACK · MOVE 44</div>
+              <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-faint); margin-top:2px">STANDBY · BAY 02 · ROW 80</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Spreader Cam Block -->
+    <div class="cam-block">
+      <div class="dash-header">
+        <div class="dash-title">Spreader Camera · Proximity</div>
+        <div class="dash-mode" style="color:var(--red); border-color:var(--red); background:rgba(248,113,113,0.08)">
+          <span class="rec-dot"></span>REC
+        </div>
+      </div>
+
+      <!-- Camera viewport -->
+      <div class="cam-viewport">
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="camVignette" cx="0.5" cy="0.5" r="0.7">
+              <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+              <stop offset="100%" stop-color="rgba(0,0,0,0.6)"/>
+            </radialGradient>
+            <pattern id="camNoise" patternUnits="userSpaceOnUse" width="3" height="3">
+              <rect width="3" height="3" fill="#0a1020"/>
+              <circle cx="1" cy="1" r="0.2" fill="#1a2942" opacity="0.3"/>
+            </pattern>
+          </defs>
+
+          <!-- Background "ground" view -->
+          <rect width="400" height="300" fill="url(#camNoise)"/>
+
+          <!-- Quay floor texture (top-down looking) -->
+          <g id="camGround">
+            <!-- asphalt -->
+            <rect x="0" y="0" width="400" height="300" fill="#1a2030"/>
+            <!-- lane markings (top-down) -->
+            <rect x="40" y="0" width="3" height="300" fill="#fbbf24" opacity="0.4"/>
+            <rect x="357" y="0" width="3" height="300" fill="#fbbf24" opacity="0.4"/>
+            <!-- center dashed -->
+            <g fill="#fbbf24" opacity="0.3">
+              <rect x="198" y="10" width="4" height="20"/>
+              <rect x="198" y="50" width="4" height="20"/>
+              <rect x="198" y="90" width="4" height="20"/>
+              <rect x="198" y="130" width="4" height="20"/>
+              <rect x="198" y="170" width="4" height="20"/>
+              <rect x="198" y="210" width="4" height="20"/>
+              <rect x="198" y="250" width="4" height="20"/>
+            </g>
+          </g>
+
+          <!-- Truck chassis seen from above (target) -->
+          <g id="camTruck" transform="translate(200,150)">
+            <!-- Whole truck top-down -->
+            <g transform="translate(-180,-45)">
+              <!-- chassis bed (long) -->
+              <rect x="60" y="20" width="280" height="50" fill="#3f4756" stroke="#1f2937" stroke-width="1"/>
+              <!-- twistlock targets - these are what we align to -->
+              <rect x="68" y="28" width="14" height="14" fill="#fbbf24" stroke="#78350f" stroke-width="1.5"/>
+              <rect x="68" y="48" width="14" height="14" fill="#fbbf24" stroke="#78350f" stroke-width="1.5"/>
+              <rect x="318" y="28" width="14" height="14" fill="#fbbf24" stroke="#78350f" stroke-width="1.5"/>
+              <rect x="318" y="48" width="14" height="14" fill="#fbbf24" stroke="#78350f" stroke-width="1.5"/>
+              <!-- cab -->
+              <rect x="0" y="14" width="60" height="62" fill="url(#truckGrad)" stroke="#78350f" stroke-width="1"/>
+              <rect x="10" y="22" width="40" height="18" fill="#1e3a5f"/>
+              <!-- wheels visible from above (just rectangles) -->
+              <rect x="56" y="6" width="14" height="6" fill="#111827"/>
+              <rect x="56" y="78" width="14" height="6" fill="#111827"/>
+              <rect x="320" y="6" width="14" height="6" fill="#111827"/>
+              <rect x="320" y="78" width="14" height="6" fill="#111827"/>
+              <!-- hood marking -->
+              <rect x="20" y="48" width="20" height="6" fill="#fde047" opacity="0.6"/>
+            </g>
+          </g>
+
+          <!-- Vignette -->
+          <rect width="400" height="300" fill="url(#camVignette)" pointer-events="none"/>
+
+          <!-- ===== AR PARKING GUIDE LINES (these are the magic) ===== -->
+          <g id="camGuides">
+            <!-- center crosshair -->
+            <g id="crosshair" stroke="#00d4ff" stroke-width="1" opacity="0.6">
+              <line x1="180" y1="150" x2="220" y2="150"/>
+              <line x1="200" y1="130" x2="200" y2="170"/>
+              <circle cx="200" cy="150" r="6" fill="none"/>
+            </g>
+
+            <!-- Parking guide trapezoids (like reverse parking lines that bend with steering) -->
+            <!-- Outer (red - far) -->
+            <path id="guideOuter" d="M 60 270 L 340 270 L 320 200 L 80 200 Z" fill="none" stroke="#f87171" stroke-width="2" stroke-dasharray="4 3"/>
+            <!-- Middle (amber) -->
+            <path id="guideMid" d="M 90 200 L 310 200 L 290 130 L 110 130 Z" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="4 3"/>
+            <!-- Inner (green - aligned) -->
+            <path id="guideInner" d="M 120 130 L 280 130 L 270 80 L 130 80 Z" fill="none" stroke="#4ade80" stroke-width="2.5"/>
+
+            <!-- Alignment box - the actual landing zone visualized -->
+            <rect id="alignBox" x="135" y="105" width="130" height="90" fill="rgba(74,222,128,0.06)" stroke="#4ade80" stroke-width="2"/>
+            <!-- corner brackets on alignment box -->
+            <g stroke="#4ade80" stroke-width="2.5" fill="none">
+              <path d="M 135 115 L 135 105 L 145 105"/>
+              <path d="M 255 105 L 265 105 L 265 115"/>
+              <path d="M 135 185 L 135 195 L 145 195"/>
+              <path d="M 255 195 L 265 195 L 265 185"/>
+            </g>
+          </g>
+
+          <!-- ===== CONTAINER OUTLINE (what we're holding, projected down) ===== -->
+          <g id="camContainerOutline" opacity="0.85">
+            <!-- The container we're carrying, shown as projected outline -->
+            <rect x="125" y="95" width="150" height="110" fill="rgba(239,68,68,0.15)" stroke="#ef4444" stroke-width="2" stroke-dasharray="6 4"/>
+            <!-- center marker of container -->
+            <circle cx="200" cy="150" r="3" fill="#ef4444"/>
+          </g>
+
+          <!-- distance text in scene -->
+          <text id="camDistText" x="200" y="42" fill="#4ade80" font-family="JetBrains Mono" font-size="22" font-weight="700" text-anchor="middle">8.2 m</text>
+          <text x="200" y="58" fill="#94a3b8" font-family="JetBrains Mono" font-size="9" text-anchor="middle" letter-spacing="2">DISTANCE TO CONTACT</text>
+
+          <!-- alignment status -->
+          <text id="camAlignText" x="200" y="288" fill="#4ade80" font-family="Rajdhani" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="3">ALIGNED · X+0.2 Y-0.1</text>
+        </svg>
+
+        <!-- HUD overlay -->
+        <div class="cam-overlay">
+          <div class="cam-corner tl"></div>
+          <div class="cam-corner tr"></div>
+          <div class="cam-corner bl"></div>
+          <div class="cam-corner br"></div>
+          <div class="cam-text-tl">SPRD-CAM 01<br>1080p · 60fps</div>
+          <div class="cam-text-tr" id="camMode">MODE: GUIDED</div>
+          <div class="cam-text-bl">LIDAR ACTIVE</div>
+          <div class="cam-text-br" id="camTimestamp">--:--:--</div>
+        </div>
+      </div>
+
+      <!-- Proximity sensor strip (below cam) -->
+      <div class="proximity">
+        <div class="prox-bar-wrap">
+          <div class="prox-label">
+            <span>PROXIMITY</span>
+            <span id="proxStatus">SAFE</span>
+          </div>
+          <div class="prox-bar">
+            <div class="prox-segments" id="proxSegments">
+              <!-- 16 segments populated by JS -->
+            </div>
+          </div>
+          <div class="prox-value">
+            <span><span class="num" id="proxNum">8.2</span> <span class="unit">m</span></span>
+            <span><span style="color:var(--text-faint)">RATE:</span> <span style="color:var(--cyan)" id="proxRate">-0.4 m/s</span></span>
+          </div>
+        </div>
+        <div class="beep-indicator">
+          <div class="beep-icon" id="beepIcon"></div>
+          <div class="beep-label" id="beepLabel">IDLE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TIMELINE + CONTROLS ============ -->
+  <div class="controls">
+    <div class="timeline" id="timeline">
+      <!-- populated by JS -->
+    </div>
+    <div class="ctrl-buttons">
+      <button class="btn primary" id="playBtn">PAUSE</button>
+      <button class="btn" id="restartBtn">↻ RESTART</button>
+    </div>
+    <div class="speed-control">
+      <span>SPEED</span>
+      <button class="speed-btn" data-speed="0.5">0.5×</button>
+      <button class="speed-btn active" data-speed="1">1×</button>
+      <button class="speed-btn" data-speed="2">2×</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+//  ZERO-WAIT STS — Animation State Machine
+// ============================================================
+
+// ---------- Phase definitions ----------
+// Each phase has: id, label, narrator text, duration (ms), and an update fn
+// that animates from progress=0 to progress=1.
+const phases = [
+  {
+    id: 'PICK',
+    label: 'PICK',
+    narrator: 'Phase 1 · Crane attaches spreader to container on vessel',
+    duration: 2500,
+    update: (p) => {
+      // Trolley over ship, spreader at container height
+      setTrolleyX(950);
+      setSpreaderY(lerp(170, 285, p));     // descending onto container
+      setCarriedVisible(p > 0.85);
+      setCarriedColor('contRed');
+      setActiveStatus('PICKING UP', 'cyan');
+      setActiveProgress(p * 0.10);
+      setCamDistance(0); // not relevant in pick phase, keep small
+      setProximity(0);
+      setSensorCone(false);
+      setMicroSlot(false);
+      setPrestageOverlay(false);
+      setNarratorVisible(true);
+    }
+  },
+  {
+    id: 'HOIST_UP',
+    label: 'HOIST',
+    narrator: 'Phase 2 · Hoisting container clear of vessel bay',
+    duration: 1800,
+    update: (p) => {
+      setTrolleyX(950);
+      setSpreaderY(lerp(285, 170, p));     // rising
+      setCarriedVisible(true);
+      setActiveStatus('HOISTING', 'cyan');
+      setActiveProgress(0.10 + p * 0.10);
+      setSensorCone(false);
+      // Pre-stage badge appears here — system is already evaluating next move
+      if (p > 0.4) {
+        setPrestageOverlay(true);
+        setPrestageBadge(true);
+      }
+    }
+  },
+  {
+    id: 'TROLLEY_OUT',
+    label: 'TROLLEY',
+    narrator: 'Phase 3 · Trolley traverses landside · ITV-108 already in slot · ITV-115 dispatched',
+    duration: 3000,
+    update: (p) => {
+      const eased = easeInOut(p);
+      setTrolleyX(lerp(950, 270, eased));   // ship → over truck
+      setSpreaderY(170);
+      setCarriedVisible(true);
+      setActiveStatus('TROLLEY OUTBOUND', 'cyan');
+      setActiveProgress(0.20 + p * 0.20);
+      // Truck B (ITV-115) starts approaching
+      setTruckB(lerp(-300, -150, eased));
+      setItvEta(Math.round(lerp(14, 9, p)));
+      setMicroSlot(p > 0.5);
+      setPrestageOverlay(true);
+      setNextLight('amber');
+    }
+  },
+  {
+    id: 'ALIGN',
+    label: 'ALIGN',
+    narrator: 'Phase 4 · Spreader camera & proximity sensors guiding alignment over ITV-108',
+    duration: 2500,
+    update: (p) => {
+      setTrolleyX(270);
+      setSpreaderY(lerp(170, 240, p));     // start descending slowly
+      setCarriedVisible(true);
+      setActiveStatus('FINE POSITIONING', 'amber');
+      setActiveProgress(0.40 + p * 0.10);
+      // Camera distance: from ~12m to ~6m
+      const dist = lerp(12.0, 6.0, p);
+      setCamDistance(dist);
+      setProximity(p * 0.45);
+      setSensorCone(true, p);
+      setCamMode('GUIDED · ALIGNING');
+      // Truck B keeps approaching
+      setTruckB(lerp(-150, -30, p));
+      setItvEta(Math.round(lerp(9, 5, p)));
+      setPrestageOverlay(true);
+    }
+  },
+  {
+    id: 'LOWER',
+    label: 'LOWER',
+    narrator: 'Phase 5 · Final descent · proximity sensors active · twistlocks ready',
+    duration: 2800,
+    update: (p) => {
+      setTrolleyX(270);
+      setSpreaderY(lerp(240, 360, p));     // descending onto truck
+      setCarriedVisible(true);
+      setActiveStatus('LOWERING', 'amber');
+      setActiveProgress(0.50 + p * 0.25);
+      // Camera distance: 6m → 0.2m
+      const dist = lerp(6.0, 0.2, p);
+      setCamDistance(dist);
+      setProximity(0.45 + p * 0.5);
+      setSensorCone(true, p);
+      setCamMode('GUIDED · LANDING');
+      // Truck B keeps approaching
+      setTruckB(lerp(-30, 80, p));
+      setItvEta(Math.round(lerp(5, 1, p)));
+    }
+  },
+  {
+    id: 'RELEASE',
+    label: 'LOCK',
+    narrator: 'Phase 6 · Twistlock confirmed · container released · Move 42 complete',
+    duration: 1200,
+    update: (p) => {
+      setTrolleyX(270);
+      setSpreaderY(360);
+      setCarriedVisible(p < 0.5);          // container is "released" at midpoint
+      setActiveStatus('TWISTLOCK', 'green');
+      setActiveProgress(0.75 + p * 0.10);
+      setCamMode('CONTACT · LOCKED');
+      setProximity(0.95);
+      setBeepLabel('LOCKED');
+      // Final approach truck B
+      setTruckB(lerp(80, 160, p));
+      setItvEta(Math.max(0, Math.round(lerp(1, 0, p))));
+    }
+  },
+  {
+    id: 'ZERO_WAIT',
+    label: 'ZERO-WAIT',
+    narrator: 'Phase 7 · ZERO-WAIT moment · ITV-108 departs · ITV-115 already in position · Move 43 active',
+    duration: 2500,
+    update: (p) => {
+      setTrolleyX(270);
+      setSpreaderY(lerp(360, 250, p));     // start raising
+      setCarriedVisible(false);
+      setActiveStatus('CYCLING', 'green');
+      setActiveProgress(0.85 + p * 0.10);
+      setCamMode('IDLE · CYCLING');
+      setProximity(Math.max(0, 0.95 - p * 0.95));
+      setBeepLabel('IDLE');
+      // Truck A (ITV-108) departs
+      setTruckA(lerp(160, 800, easeInOut(p)));
+      // Truck B (ITV-115) arrives at slot — this is the magic
+      setTruckB(lerp(160, 160, p)); // already there, holds
+      setNextLight('green');
+      setMicroSlot(false);
+      setSensorCone(false);
+    }
+  },
+  {
+    id: 'HOIST_RETURN',
+    label: 'RETURN',
+    narrator: 'Phase 8 · Spreader returns empty · cycle continues without idle gap',
+    duration: 1500,
+    update: (p) => {
+      setTrolleyX(270);
+      setSpreaderY(lerp(250, 170, p));
+      setCarriedVisible(false);
+      setActiveStatus('HOIST RETURN', 'cyan');
+      setActiveProgress(0.95 + p * 0.05);
+    }
+  },
+  {
+    id: 'TROLLEY_RETURN',
+    label: 'TRAVERSE',
+    narrator: 'Phase 9 · Trolley returning to vessel · Move 43 (Twin-lift) becomes active',
+    duration: 2500,
+    update: (p) => {
+      const eased = easeInOut(p);
+      setTrolleyX(lerp(270, 950, eased));
+      setSpreaderY(170);
+      setCarriedVisible(false);
+      // Reset state for next cycle
+      if (p > 0.7) {
+        setActiveStatus('READY', 'green');
+        setActiveProgress(1.0);
+      }
+    }
+  }
+];
+
+// ---------- DOM references ----------
+const $ = sel => document.querySelector(sel);
+const trolley = document.getElementById('trolley');
+const spreaderAssembly = document.getElementById('spreaderAssembly');
+const cableL = document.getElementById('cableL');
+const cableR = document.getElementById('cableR');
+const cableLM = document.getElementById('cableLM');
+const cableRM = document.getElementById('cableRM');
+const carried = document.getElementById('carriedContainer');
+const truckA = document.getElementById('truckA');
+const truckB = document.getElementById('truckB');
+const truckC = document.getElementById('truckC');
+const truckBEta = document.getElementById('truckBEta');
+const microSlotEl = document.getElementById('microSlot');
+const prestageOverlay = document.getElementById('prestageOverlay');
+const prestageBadge = document.getElementById('prestageBadge');
+const sensorCone = document.getElementById('sensorCone');
+const sensorConePath = document.getElementById('sensorConePath');
+const narrator = document.getElementById('narrator');
+const narratorText = document.getElementById('narratorText');
+
+// ---------- Animation state ----------
+let currentPhase = 0;
+let phaseStartTime = performance.now();
+let isPlaying = true;
+let speedMultiplier = 1;
+let trolleyX_state = 950;
+let spreaderY_state = 170;
+
+// ---------- Init phase timeline UI ----------
+const timelineEl = document.getElementById('timeline');
+phases.forEach((phase, i) => {
+  const step = document.createElement('div');
+  step.className = 'timeline-step';
+  step.textContent = phase.label;
+  step.dataset.idx = i;
+  timelineEl.appendChild(step);
+});
+
+// ---------- Init proximity segments (16 LEDs) ----------
+const proxSeg = document.getElementById('proxSegments');
+const SEG_COUNT = 16;
+for (let i = 0; i < SEG_COUNT; i++) {
+  const s = document.createElement('div');
+  s.className = 'seg';
+  proxSeg.appendChild(s);
+}
+
+// ---------- Helper / setter functions ----------
+function lerp(a, b, t) { return a + (b - a) * t; }
+function easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2; }
+
+function setTrolleyX(x) {
+  trolleyX_state = x;
+  trolley.setAttribute('transform', `translate(${x}, 0)`);
+  // hoist cables anchor at trolley bottom = (x, 135), spreader at (x, spreaderY)
+  cableL.setAttribute('x1', -30); cableL.setAttribute('x2', -30);
+  cableL.setAttribute('y1', 135); cableL.setAttribute('y2', spreaderY_state);
+  cableR.setAttribute('x1', 30);  cableR.setAttribute('x2', 30);
+  cableR.setAttribute('y1', 135); cableR.setAttribute('y2', spreaderY_state);
+  cableLM.setAttribute('x1', -15); cableLM.setAttribute('x2', -15);
+  cableLM.setAttribute('y1', 135); cableLM.setAttribute('y2', spreaderY_state);
+  cableRM.setAttribute('x1', 15);  cableRM.setAttribute('x2', 15);
+  cableRM.setAttribute('y1', 135); cableRM.setAttribute('y2', spreaderY_state);
+  document.getElementById('spreader').setAttribute('transform', `translate(0, ${spreaderY_state})`);
+  // also update sensor cone position
+  updateSensorConePath();
+}
+
+function setSpreaderY(y) {
+  spreaderY_state = y;
+  cableL.setAttribute('y2', y);
+  cableR.setAttribute('y2', y);
+  cableLM.setAttribute('y2', y);
+  cableRM.setAttribute('y2', y);
+  document.getElementById('spreader').setAttribute('transform', `translate(0, ${y})`);
+  updateSensorConePath();
+}
+
+function updateSensorConePath() {
+  const tx = trolleyX_state;
+  const sy = spreaderY_state;
+  // Cone from spreader downward to ground (y=540)
+  const groundY = 540;
+  // Top edge slightly wider than spreader; bottom edge wider still
+  const topW = 50;
+  const botW = 80;
+  sensorConePath.setAttribute('d',
+    `M ${tx - topW} ${sy + 14} L ${tx + topW} ${sy + 14} L ${tx + botW} ${groundY} L ${tx - botW} ${groundY} Z`
+  );
+}
+
+function setCarriedVisible(visible) {
+  carried.setAttribute('opacity', visible ? '1' : '0');
+}
+
+function setCarriedColor(gradId) {
+  const useEl = carried.querySelector('use');
+  if (useEl) useEl.setAttribute('color', '#ef4444'); // simplified, color is via the use
+}
+
+function setActiveStatus(text, color) {
+  const el = document.getElementById('activeStatus');
+  el.textContent = text;
+  el.className = 'v ' + (color || 'cyan');
+  // light dot color
+  const light = document.getElementById('activeLight');
+  light.className = 'status-light ' + (color === 'green' ? 'light-green' : color === 'amber' ? 'light-amber' : 'light-green');
+}
+
+function setActiveProgress(p) {
+  document.getElementById('activeProgress').style.width = (p * 100) + '%';
+  // ETC text
+  const remaining = Math.max(0, Math.round((1 - p) * 35));
+  document.getElementById('activeEtc').textContent = remaining + ' s';
+}
+
+function setNextLight(color) {
+  document.getElementById('nextLight').className = 'status-light ' + (color === 'green' ? 'light-green' : 'light-amber');
+}
+
+function setPrestageBadge(show) {
+  prestageBadge.classList.toggle('show', show);
+}
+
+function setPrestageOverlay(show) {
+  prestageOverlay.setAttribute('opacity', show ? '1' : '0');
+  prestageOverlay.style.transition = 'opacity 0.4s';
+}
+
+function setMicroSlot(show) {
+  microSlotEl.setAttribute('opacity', show ? '1' : '0');
+  microSlotEl.style.transition = 'opacity 0.5s';
+}
+
+function setSensorCone(show, intensity = 0) {
+  sensorCone.setAttribute('opacity', show ? Math.min(1, 0.4 + intensity * 0.6).toString() : '0');
+}
+
+function setTruckA(x) {
+  truckA.setAttribute('transform', `translate(${x},535)`);
+}
+
+function setTruckB(x) {
+  truckB.setAttribute('transform', `translate(${x},535)`);
+  // hide ETA badge once truck is in slot
+  truckBEta.setAttribute('opacity', x >= 100 ? '0' : '1');
+  truckBEta.style.transition = 'opacity 0.4s';
+}
+
+function setTruckC(x) {
+  truckC.setAttribute('transform', `translate(${x},535)`);
+}
+
+function setItvEta(s) {
+  document.getElementById('itvEta').textContent = s;
+}
+
+function setNarratorVisible(v) {
+  narrator.style.opacity = v ? '1' : '0';
+}
+
+function updateNarrator(phase, idx) {
+  narratorText.textContent = phase.narrator.split('·').slice(1).join('·').trim() || phase.narrator;
+  narrator.querySelector('.phase-num').textContent = `PHASE ${String(idx+1).padStart(2,'0')} / ${String(phases.length).padStart(2,'0')}`;
+}
+
+function updateTimelineUI(activeIdx) {
+  document.querySelectorAll('.timeline-step').forEach((el, i) => {
+    el.classList.toggle('active', i === activeIdx);
+    el.classList.toggle('done', i < activeIdx);
+  });
+}
+
+// ---------- Camera + Proximity setters ----------
+function setCamDistance(d) {
+  document.getElementById('camDistText').textContent = d.toFixed(1) + ' m';
+  document.getElementById('proxNum').textContent = d.toFixed(1);
+
+  // Color-code distance text based on proximity zones
+  const distText = document.getElementById('camDistText');
+  if (d > 6) distText.setAttribute('fill', '#4ade80');
+  else if (d > 2) distText.setAttribute('fill', '#fbbf24');
+  else distText.setAttribute('fill', '#f87171');
+
+  // Animate parking guide colors based on alignment / distance
+  const inner = document.getElementById('guideInner');
+  const mid = document.getElementById('guideMid');
+  const outer = document.getElementById('guideOuter');
+  const alignBox = document.getElementById('alignBox');
+
+  if (d > 8) {
+    inner.setAttribute('stroke', '#64748b');
+    mid.setAttribute('stroke', '#64748b');
+    outer.setAttribute('stroke', '#f87171');
+  } else if (d > 4) {
+    inner.setAttribute('stroke', '#94a3b8');
+    mid.setAttribute('stroke', '#fbbf24');
+    outer.setAttribute('stroke', '#fbbf24');
+  } else if (d > 1.5) {
+    inner.setAttribute('stroke', '#fbbf24');
+    mid.setAttribute('stroke', '#fbbf24');
+    outer.setAttribute('stroke', '#4ade80');
+  } else {
+    inner.setAttribute('stroke', '#4ade80');
+    mid.setAttribute('stroke', '#4ade80');
+    outer.setAttribute('stroke', '#4ade80');
+    alignBox.setAttribute('stroke-width', '3');
+  }
+
+  // Container outline scales as we descend (perspective: closer = bigger)
+  const outline = document.getElementById('camContainerOutline');
+  const scale = lerp(0.85, 1.05, Math.max(0, Math.min(1, (12 - d) / 12)));
+  outline.setAttribute('transform', `translate(200, 150) scale(${scale}) translate(-200, -150)`);
+
+  // Alignment text: small drift while approaching, locks at low distance
+  const alignText = document.getElementById('camAlignText');
+  if (d < 0.5) {
+    alignText.textContent = 'CONTACT · LOCKED';
+    alignText.setAttribute('fill', '#4ade80');
+  } else if (d < 2) {
+    alignText.textContent = 'ALIGNED · X+0.0 Y+0.0';
+    alignText.setAttribute('fill', '#4ade80');
+  } else if (d < 6) {
+    const dx = (Math.sin(performance.now() / 400) * 0.3).toFixed(1);
+    const dy = (Math.cos(performance.now() / 500) * 0.2).toFixed(1);
+    alignText.textContent = `ALIGNING · X${dx>=0?'+':''}${dx} Y${dy>=0?'+':''}${dy}`;
+    alignText.setAttribute('fill', '#fbbf24');
+  } else {
+    alignText.textContent = 'ACQUIRING TARGET';
+    alignText.setAttribute('fill', '#94a3b8');
+  }
+}
+
+function setProximity(p) {
+  // p ∈ [0,1]: 0 = far, 1 = contact
+  const segs = proxSeg.children;
+  const filled = Math.round(p * SEG_COUNT);
+  for (let i = 0; i < SEG_COUNT; i++) {
+    segs[i].className = 'seg';
+    if (i < filled) {
+      if (i < SEG_COUNT * 0.5) segs[i].classList.add('on-green');
+      else if (i < SEG_COUNT * 0.85) segs[i].classList.add('on-amber');
+      else segs[i].classList.add('on-red');
+    }
+  }
+  // status label
+  const status = document.getElementById('proxStatus');
+  if (p < 0.5) { status.textContent = 'SAFE'; status.style.color = 'var(--green)'; }
+  else if (p < 0.85) { status.textContent = 'APPROACH'; status.style.color = 'var(--amber)'; }
+  else { status.textContent = 'CONTACT ZONE'; status.style.color = 'var(--red)'; }
+
+  // descent rate (synthetic)
+  const rate = (-(p > 0 ? 0.4 : 0)).toFixed(1);
+  document.getElementById('proxRate').textContent = rate + ' m/s';
+
+  // Beep cadence based on proximity
+  beepCadence(p);
+}
+
+let lastBeepTime = 0;
+let beepInterval = 9999;
+function beepCadence(p) {
+  // closer = faster beeps
+  if (p < 0.45) {
+    beepInterval = 9999;
+    setBeepLabel('IDLE');
+  } else if (p < 0.7) {
+    beepInterval = 800;
+    setBeepLabel('BEEP');
+  } else if (p < 0.88) {
+    beepInterval = 350;
+    setBeepLabel('CLOSE');
+  } else if (p < 0.97) {
+    beepInterval = 150;
+    setBeepLabel('CONTACT');
+  } else {
+    beepInterval = 0; // solid
+    setBeepLabel('LOCKED');
+  }
+}
+
+function setBeepLabel(t) {
+  document.getElementById('beepLabel').textContent = t;
+}
+
+function setCamMode(t) {
+  document.getElementById('camMode').textContent = 'MODE: ' + t;
+}
+
+function flashBeep() {
+  const icon = document.getElementById('beepIcon');
+  icon.classList.add('active');
+  setTimeout(() => icon.classList.remove('active'), 100);
+}
+
+// ---------- Cam timestamp ticker ----------
+function tickCamClock() {
+  const d = new Date();
+  const t = d.toTimeString().split(' ')[0];
+  document.getElementById('camTimestamp').textContent = t;
+  document.getElementById('clockTag').textContent = t + ' UTC';
+}
+setInterval(tickCamClock, 1000);
+tickCamClock();
+
+// ---------- Main animation loop ----------
+function animate(now) {
+  if (!isPlaying) {
+    requestAnimationFrame(animate);
+    return;
+  }
+
+  const phase = phases[currentPhase];
+  const elapsed = now - phaseStartTime;
+  const adjustedDuration = phase.duration / speedMultiplier;
+  const progress = Math.min(1, elapsed / adjustedDuration);
+
+  phase.update(progress);
+
+  // Beep flash trigger
+  if (beepInterval > 0 && beepInterval < 5000) {
+    if (now - lastBeepTime >= beepInterval / speedMultiplier) {
+      flashBeep();
+      lastBeepTime = now;
+    }
+  } else if (beepInterval === 0) {
+    // continuous
+    document.getElementById('beepIcon').classList.add('active');
+  } else {
+    document.getElementById('beepIcon').classList.remove('active');
+  }
+
+  if (progress >= 1) {
+    // Advance to next phase
+    currentPhase = (currentPhase + 1) % phases.length;
+    phaseStartTime = now;
+    updateNarrator(phases[currentPhase], currentPhase);
+    updateTimelineUI(currentPhase);
+    // Reset cycle-specific flags when starting fresh
+    if (currentPhase === 0) {
+      setPrestageBadge(false);
+      setPrestageOverlay(false);
+      // reset trucks: A back to start, B becomes the new A, fresh C arrives
+      // For simplicity, just reset positions
+      setTruckA(160);
+      setTruckB(-300);
+      setTruckC(-700);
+      setNextLight('amber');
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// ---------- Controls ----------
+document.getElementById('playBtn').addEventListener('click', (e) => {
+  isPlaying = !isPlaying;
+  e.target.textContent = isPlaying ? 'PAUSE' : '▶ PLAY';
+  if (isPlaying) phaseStartTime = performance.now() - 0; // resume
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => {
+  currentPhase = 0;
+  phaseStartTime = performance.now();
+  setTruckA(160);
+  setTruckB(-300);
+  setTruckC(-700);
+  setPrestageBadge(false);
+  setPrestageOverlay(false);
+  setMicroSlot(false);
+  setSensorCone(false);
+  updateNarrator(phases[0], 0);
+  updateTimelineUI(0);
+});
+
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    speedMultiplier = parseFloat(btn.dataset.speed);
+  });
+});
+
+// ---------- Boot ----------
+updateNarrator(phases[0], 0);
+updateTimelineUI(0);
+setTrolleyX(950);
+setSpreaderY(170);
+setCarriedVisible(false);
+setTruckA(160);
+setTruckB(-300);
+setTruckC(-700);
+requestAnimationFrame(animate);
+
+</script>
+</body>
+</html>
