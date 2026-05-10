@@ -1,8 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, Line, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { LANES, WORLD } from './scenario.js';
+import { FIXED_QUAY_CAMERA, LANES, WORLD } from './scenario.js';
 
 const toneColors = {
   cyan: '#38bdf8',
@@ -17,7 +17,7 @@ export default function PortScene({ frame }) {
     <Canvas
       shadows
       dpr={[1, 1.55]}
-      camera={{ position: [6.6, 5.3, 6.5], fov: 42, near: 0.1, far: 120 }}
+      camera={{ position: FIXED_QUAY_CAMERA.position, fov: FIXED_QUAY_CAMERA.fov, near: 0.1, far: 120 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <color attach="background" args={['#06101d']} />
@@ -42,20 +42,15 @@ export default function PortScene({ frame }) {
 
 function CameraRig({ pose }) {
   const { camera } = useThree();
-  const targetRef = useRef(new THREE.Vector3(...pose.target));
-  const desiredPosition = useMemo(() => new THREE.Vector3(), []);
-  const desiredTarget = useMemo(() => new THREE.Vector3(), []);
+  const target = useMemo(() => new THREE.Vector3(), []);
 
-  useFrame((_, delta) => {
-    desiredPosition.set(...pose.position);
-    desiredTarget.set(...pose.target);
-    const alpha = 1 - Math.exp(-delta * 2.75);
-    camera.position.lerp(desiredPosition, alpha);
-    camera.fov += (pose.fov - camera.fov) * alpha;
+  useEffect(() => {
+    camera.position.set(...pose.position);
+    camera.fov = pose.fov;
     camera.updateProjectionMatrix();
-    targetRef.current.lerp(desiredTarget, alpha);
-    camera.lookAt(targetRef.current);
-  });
+    target.set(...pose.target);
+    camera.lookAt(target);
+  }, [camera, pose, target]);
 
   return null;
 }
@@ -67,10 +62,14 @@ function PortWorld({ frame }) {
       <Ship sourceContainer={frame.sourceContainer} />
       <ContainerYard />
       <STS crane={frame.crane} guidance={frame.guidance} focusZone={frame.focusZone} />
+      <SceneFocus frame={frame} />
       <Truck {...frame.trucks.itv108} color="#eab308" accent="#38bdf8" />
       <Truck {...frame.trucks.itv115} color="#facc15" accent={toneColors[frame.trucks.itv115.tone] || '#fbbf24'} />
       <Truck {...frame.trucks.itv122} color="#64748b" accent={toneColors[frame.trucks.itv122.tone] || '#94a3b8'} />
       <DataFeedNetwork frame={frame} />
+      <SensorMarkers frame={frame} />
+      <ExceptionCallouts frame={frame} />
+      <ZeroWaitGhosts frame={frame} />
       <SafetyModeTower frame={frame} />
     </group>
   );
@@ -192,14 +191,14 @@ function Ship({ sourceContainer }) {
       ))}
       {sourceContainer.visible ? (
         <group>
-          <Container3D position={[WORLD.source.x, WORLD.source.y, WORLD.source.z]} color="#ef4444" scale={[0.88, 0.88, 0.88]} />
+          <Container3D position={[sourceContainer.position.x, sourceContainer.position.y, sourceContainer.position.z]} color={sourceContainer.color} scale={sourceContainer.scale} />
           <Line
             points={[
-              [-0.86, 2.08, WORLD.source.z - 0.4],
-              [0.86, 2.08, WORLD.source.z - 0.4],
-              [0.86, 2.08, WORLD.source.z + 0.4],
-              [-0.86, 2.08, WORLD.source.z + 0.4],
-              [-0.86, 2.08, WORLD.source.z - 0.4]
+              [sourceContainer.position.x - 0.86, 2.08, sourceContainer.position.z - 0.4],
+              [sourceContainer.position.x + 0.86, 2.08, sourceContainer.position.z - 0.4],
+              [sourceContainer.position.x + 0.86, 2.08, sourceContainer.position.z + 0.4],
+              [sourceContainer.position.x - 0.86, 2.08, sourceContainer.position.z + 0.4],
+              [sourceContainer.position.x - 0.86, 2.08, sourceContainer.position.z - 0.4]
             ]}
             color={sourceContainer.locked ? '#4ade80' : '#fbbf24'}
             lineWidth={2.2}
@@ -207,13 +206,13 @@ function Ship({ sourceContainer }) {
             dashSize={0.1}
             gapSize={0.08}
           />
-          <HtmlLabel position={[WORLD.source.x, 2.4, WORLD.source.z + 0.7]} className="slot-label">
-            Source bay · vessel
+          <HtmlLabel position={[sourceContainer.position.x, 2.4, sourceContainer.position.z + 0.7]} className="slot-label">
+            Vessel pick · {sourceContainer.shortId} · {sourceContainer.iso} · Bay {sourceContainer.bay}
           </HtmlLabel>
         </group>
       ) : (
-        <HtmlLabel position={[WORLD.source.x, 2.25, WORLD.source.z + 0.7]} className="slot-label locked">
-          Picked from vessel bay
+        <HtmlLabel position={[sourceContainer.position.x, 2.25, sourceContainer.position.z + 0.7]} className="slot-label locked">
+          Picked from vessel bay · {sourceContainer.shortId}
         </HtmlLabel>
       )}
       <HtmlLabel position={[0, 0.96, 3.95]} className="scene-label muted">
@@ -251,9 +250,66 @@ function ContainerYard() {
   );
 }
 
+function SceneFocus({ frame }) {
+  const source = frame.sourceContainer.position;
+  const pathActive = ['plc-trigger', 'look-ahead', 'micro-slot', 'spreader-guidance', 'handoff', 'zero-wait'].includes(frame.phaseId);
+  const sourceActive = ['plc-trigger', 'look-ahead'].includes(frame.phaseId);
+  const slotActive = ['micro-slot', 'spreader-guidance', 'handoff', 'zero-wait'].includes(frame.phaseId);
+  const engineActive = frame.focusZone === 'engine' || frame.phaseId === 'feedback-loop';
+  const safetyActive = frame.focusZone === 'safety';
+
+  return (
+    <group>
+      <Line
+        points={[
+          [source.x, 2.28, source.z],
+          [source.x, 4.25, source.z],
+          [WORLD.slot.x, 4.25, WORLD.slot.z],
+          [WORLD.slot.x, 1.52, WORLD.slot.z]
+        ]}
+        color={pathActive ? '#38bdf8' : '#64748b'}
+        lineWidth={pathActive ? 2.6 : 1}
+        dashed
+        dashSize={0.18}
+        gapSize={0.12}
+        transparent
+        opacity={pathActive ? 0.82 : 0.16}
+      />
+      <mesh position={[source.x, 2.15, source.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.64, 0.78, 40]} />
+        <meshBasicMaterial color={sourceActive ? '#fbbf24' : '#38bdf8'} transparent opacity={sourceActive ? 0.72 : 0.24} />
+      </mesh>
+      <mesh position={[WORLD.slot.x, 0.13, WORLD.slot.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.26, 1.42, 56]} />
+        <meshBasicMaterial color={slotActive ? '#4ade80' : '#38bdf8'} transparent opacity={slotActive ? 0.38 : 0.13} />
+      </mesh>
+      {sourceActive ? (
+        <HtmlLabel position={[source.x - 1.05, 2.95, source.z + 0.24]} className="workflow-label active amber">
+          1 Pick from vessel bay
+        </HtmlLabel>
+      ) : null}
+      {slotActive ? (
+        <HtmlLabel position={[WORLD.slot.x + 1.25, 1.15, WORLD.slot.z - 0.08]} className="workflow-label active green">
+          2 Land on assigned ITV
+        </HtmlLabel>
+      ) : null}
+      {engineActive ? (
+        <HtmlLabel position={[-4.15, 1.74, -0.52]} className="workflow-label active cyan">
+          Coordination layer
+        </HtmlLabel>
+      ) : null}
+      {safetyActive ? (
+        <HtmlLabel position={[2.85, 1.96, -0.25]} className="workflow-label active amber">
+          Safety / manual fallback
+        </HtmlLabel>
+      ) : null}
+    </group>
+  );
+}
+
 function STS({ crane, guidance, focusZone }) {
   const { trolleyX, trolleyZ, hoistY } = crane;
-  const structureOpacity = focusZone === 'slot' ? 0.46 : 1;
+  const structureOpacity = ['slot', 'guide', 'exception'].includes(focusZone) ? 0.38 : 0.54;
   const cableOffsets = [
     [-0.52, -0.23],
     [0.52, -0.23],
@@ -293,7 +349,28 @@ function STS({ crane, guidance, focusZone }) {
 
       <group position={[trolleyX, hoistY, trolleyZ]}>
         <Spreader locked={crane.locked || guidance.locked} />
-        {crane.carried ? <Container3D position={[0, -0.5, 0]} color="#ef4444" scale={[0.9, 0.9, 0.9]} /> : null}
+        {crane.carried ? (
+          <group>
+            {[
+              [-0.66, -0.25],
+              [0.66, -0.25],
+              [-0.66, 0.25],
+              [0.66, 0.25]
+            ].map(([x, z]) => (
+              <group key={`${x}-${z}`}>
+                <Line points={[[x, -0.08, z], [x, -0.27, z]]} color={crane.locked ? '#4ade80' : '#fbbf24'} lineWidth={1.5} />
+                <mesh position={[x, -0.3, z]}>
+                  <sphereGeometry args={[0.045, 10, 8]} />
+                  <meshStandardMaterial color={crane.locked ? '#4ade80' : '#fbbf24'} emissive={crane.locked ? '#4ade80' : '#fbbf24'} emissiveIntensity={1.2} />
+                </mesh>
+              </group>
+            ))}
+            <Container3D position={[0, -0.5, 0]} color={crane.container.color} scale={crane.container.scale} />
+            <HtmlLabel position={[0, -0.05, 0.56]} className="container-label">
+              {crane.container.shortId} · {crane.container.iso}
+            </HtmlLabel>
+          </group>
+        ) : null}
       </group>
 
       {guidance.active ? (
@@ -343,8 +420,9 @@ function Spreader({ locked }) {
   );
 }
 
-function Truck({ id, x, z, color, accent, loaded, target, status, tone }) {
+function Truck({ id, x, z, color, accent, loaded, loadedContainer, target, status, tone, chassis }) {
   const opacity = tone === 'muted' ? 0.62 : 1;
+  const loadPosition = getTruckLoadPosition(loadedContainer);
   return (
     <group position={[x, 0.12, z]}>
       <Block position={[0.12, 0.34, 0]} args={[2.25, 0.18, 0.72]} color="#374151" opacity={opacity} metalness={0.35} />
@@ -352,7 +430,7 @@ function Truck({ id, x, z, color, accent, loaded, target, status, tone }) {
       <Block position={[-1.03, 0.68, -0.38]} args={[0.42, 0.22, 0.04]} color="#1e3a5f" opacity={0.7} />
       <Block position={[0.33, 0.5, 0]} args={[1.7, 0.08, 0.58]} color="#111827" opacity={opacity} metalness={0.2} />
       <DriverFigure />
-      {loaded ? <Container3D position={[0.38, 0.88, 0]} color="#ef4444" scale={[0.92, 0.92, 0.9]} /> : null}
+      {loaded && loadedContainer ? <Container3D position={loadPosition} color={loadedContainer.color} scale={loadedContainer.scale} /> : null}
       {[-0.88, -0.48, 0.72, 1.05].map((wheelX) => (
         <Wheel key={wheelX} position={[wheelX, 0.18, -0.43]} radius={0.13} />
       ))}
@@ -369,8 +447,18 @@ function Truck({ id, x, z, color, accent, loaded, target, status, tone }) {
       <HtmlLabel position={[0.05, 1.12, 0]} className={target ? 'truck-tag active' : 'truck-tag'}>
         {id} · {status}
       </HtmlLabel>
+      <HtmlLabel position={[0.05, 0.08, 0.62]} className="truck-chassis">
+        {chassis}
+      </HtmlLabel>
     </group>
   );
+}
+
+function getTruckLoadPosition(container) {
+  if (!container) return [0.32, 0.82, 0];
+  if (container.sizeFt <= 20) return [0.12, 0.82, 0];
+  if (container.sizeFt >= 45) return [0.36, 0.82, 0];
+  return [0.32, 0.82, 0];
 }
 
 function DriverFigure() {
@@ -396,33 +484,117 @@ function HumanFigure({ position = [0, 0, 0], scale = 1, color = '#0f172a' }) {
 }
 
 function DataFeedNetwork({ frame }) {
-  const active = ['engine', 'safety'].includes(frame.focusZone) || frame.issueActive;
-  const activity = active ? 1 : 0.18;
-  const engine = [-4.9, 0.9, -0.25];
-  const nodes = [
-    { id: 'TOS / BAPLIE', position: [-6.6, 1.12, 0.55], color: '#38bdf8' },
-    { id: 'PLC trigger', position: [-1.1, 4.15, 1.15], color: '#fbbf24' },
-    { id: 'GPS / VMT', position: [-6.8, 0.95, -2.35], color: '#4ade80' },
-    { id: 'Yard ready', position: [-5.9, 1.0, -3.55], color: '#a78bfa' },
-    { id: 'Wind 8 m/s', position: [-2.6, 1.8, 0.85], color: '#93c5fd' }
-  ];
+  const active = ['engine', 'safety'].includes(frame.focusZone) || frame.phaseId === 'data-feeds' || frame.issueActive;
+  const activity = active ? 1 : 0.34;
+  const engine = [-4.15, 1.02, -0.58];
+  const nodes = frame.dataFeeds;
 
   return (
     <group>
-      <Block position={engine} args={[1.2, 0.48, 0.72]} color="#0f2742" emissive={frame.issueActive ? frame.scenario.color : '#38bdf8'} emissiveIntensity={0.1 + activity * 0.22} />
-      <HtmlLabel position={[engine[0], engine[1] + 0.55, engine[2]]} className="engine-label">
-        Coordination engine
-      </HtmlLabel>
+      <Block position={engine} args={[1.58, 0.58, 0.92]} color="#0f2742" emissive={frame.issueActive ? frame.scenario.color : '#38bdf8'} emissiveIntensity={0.12 + activity * 0.34} />
+      <Line
+        points={[
+          [engine[0] - 0.92, engine[1] + 0.34, engine[2] - 0.54],
+          [engine[0] + 0.92, engine[1] + 0.34, engine[2] - 0.54]
+        ]}
+        color="#38bdf8"
+        lineWidth={2.4}
+        transparent
+        opacity={0.28 + activity * 0.42}
+      />
+      {active ? (
+        <HtmlLabel position={[engine[0], engine[1] + 0.72, engine[2] - 0.12]} className="engine-label active">
+          <strong>Coordination engine</strong>
+          <span>Recommendation output, no direct crane control</span>
+        </HtmlLabel>
+      ) : null}
       {nodes.map((node, i) => (
         <group key={node.id}>
-          <Block position={node.position} args={[0.86, 0.25, 0.42]} color="#111827" emissive={node.color} emissiveIntensity={activity * 0.18} opacity={0.9} />
-          <Line points={[node.position, engine]} color={node.color} transparent opacity={0.08 + activity * 0.26} lineWidth={1.1} />
+          <Block position={node.position} args={[0.96, 0.28, 0.5]} color="#111827" emissive={node.color} emissiveIntensity={activity * 0.24} opacity={0.92} />
+          <Line points={[node.position, engine]} color={node.color} transparent opacity={0.14 + activity * 0.38} lineWidth={active ? 1.8 : 1.1} />
           <DataPulse from={node.position} to={engine} color={node.color} activity={activity} offset={i * 0.17} />
-          <HtmlLabel position={[node.position[0], node.position[1] + 0.32, node.position[2]]} className="scene-label">
-            {node.id}
+          {active ? (
+            <HtmlLabel position={[node.position[0], node.position[1] + 0.44, node.position[2]]} className="feed-label active">
+              <strong>{node.name}</strong>
+              <span>{node.origin} · {node.status} · {node.freshness}</span>
+              <em>{node.sample}</em>
+            </HtmlLabel>
+          ) : null}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function SensorMarkers({ frame }) {
+  if (!frame.sensorLabels.length) return null;
+  return (
+    <group>
+      {frame.sensorLabels.map((sensor) => (
+        <group key={sensor.id} position={sensor.position}>
+          <mesh>
+            <sphereGeometry args={[0.08, 14, 10]} />
+            <meshStandardMaterial color={sensor.color} emissive={sensor.color} emissiveIntensity={1.6} />
+          </mesh>
+          <Line points={[[0, 0, 0], [0, 0.34, 0]]} color={sensor.color} lineWidth={1.2} transparent opacity={0.8} />
+          <HtmlLabel position={[0, 0.48, 0]} className="sensor-label">
+            <strong>{sensor.label}</strong>
+            <span>{sensor.value}</span>
           </HtmlLabel>
         </group>
       ))}
+    </group>
+  );
+}
+
+function ExceptionCallouts({ frame }) {
+  if (frame.phaseId !== 'dynamic-resequence') return null;
+  const scene = frame.exceptionScene;
+  return (
+    <group>
+      <HtmlLabel position={[WORLD.queueWindow.x, 1.62, LANES.lane1.z - 0.72]} className={scene.active ? 'exception-label red' : 'exception-label amber'}>
+        Scheduled first · ITV-122
+        <br />
+        {scene.planned.reason}
+      </HtmlLabel>
+      <HtmlLabel position={[4.0, 1.52, LANES.lane2.z - 0.72]} className="exception-label red">
+        Reject ITV-108
+        <br />
+        {scene.rejected.reason}
+      </HtmlLabel>
+      <HtmlLabel position={[WORLD.slot.x, 1.62, LANES.lane2.z + 0.72]} className="exception-label green">
+        Place here · ITV-115
+        <br />
+        {scene.fallback.reason}
+      </HtmlLabel>
+    </group>
+  );
+}
+
+function ZeroWaitGhosts({ frame }) {
+  if (frame.phaseId !== 'zero-wait') return null;
+  return (
+    <group>
+      {frame.zeroWaitCycles.map((cycle) => {
+        const container = frame.containers.find((item) => item.id === cycle.containerId);
+        return (
+          <group key={cycle.label}>
+            <Line
+              points={cycle.routePoints}
+              color={container?.color || '#38bdf8'}
+              lineWidth={cycle.active ? 2.2 : 1.5}
+              dashed
+              dashSize={0.2}
+              gapSize={0.12}
+              transparent
+              opacity={cycle.active ? 0.82 : 0.28}
+            />
+            <HtmlLabel position={[cycle.truckX, 0.52, cycle.truckZ - 0.58]} className={cycle.active ? 'cycle-label active' : 'cycle-label'}>
+              {cycle.label} · {cycle.routeStage}
+            </HtmlLabel>
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -545,7 +717,7 @@ function Block({
 
 function HtmlLabel({ children, position, className }) {
   return (
-    <Html zIndexRange={[1, 0]} position={position} transform distanceFactor={3.2} className={className}>
+    <Html zIndexRange={[40, 0]} position={position} center occlude={false} className={className} style={{ pointerEvents: 'none' }}>
       {children}
     </Html>
   );

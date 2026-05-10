@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   Camera,
   ChevronLeft,
   ChevronRight,
+  CheckCircle2,
+  Cpu,
   Database,
+  FastForward,
   Gauge,
+  ListChecks,
   Pause,
   Play,
+  RadioTower,
   RotateCcw,
   Route,
   ShieldCheck,
@@ -170,11 +176,52 @@ export default function App() {
 }
 
 function FocusPanel({ frame }) {
-  if (['micro-slot', 'zero-wait'].includes(frame.visiblePanel)) {
+  if (frame.visiblePanel === 'feeds') {
+    return (
+      <aside className="focus-panel feed-panel">
+        <PanelHeader icon={<RadioTower size={15} />} title="Feed matrix" badge="5 SOURCES" tone="cyan" />
+        <FeedMatrix frame={frame} />
+      </aside>
+    );
+  }
+
+  if (frame.visiblePanel === 'plc') {
+    return (
+      <aside className="focus-panel plc-panel">
+        <PanelHeader icon={<Cpu size={15} />} title="PLC signal stack" badge="TRIGGER" tone={frame.crane.locked ? 'green' : 'amber'} />
+        <PlcSignalStack frame={frame} />
+      </aside>
+    );
+  }
+
+  if (frame.visiblePanel === 'ranking') {
+    return (
+      <aside className="focus-panel ranking-panel">
+        <PanelHeader icon={<ListChecks size={15} />} title="Move ranking board" badge="COMPAT" tone="green" />
+        <MoveRankingBoard frame={frame} />
+      </aside>
+    );
+  }
+
+  if (frame.visiblePanel === 'micro-slot') {
     return (
       <aside className="focus-panel lane-panel">
         <PanelHeader icon={<Route size={15} />} title="Micro-slot lane map" badge={frame.microSlot.centered ? 'CENTERED' : 'TARGETING'} tone={frame.microSlot.centered ? 'green' : 'cyan'} />
+        <SensorList sensors={frame.sensorLabels} />
         <MiniLaneMap frame={frame} />
+        <div className="panel-copy">
+          <strong>{frame.routeDetails.primary}</strong>
+          <span>{frame.routeDetails.fallback}</span>
+        </div>
+      </aside>
+    );
+  }
+
+  if (frame.visiblePanel === 'zero-wait') {
+    return (
+      <aside className="focus-panel zero-panel">
+        <PanelHeader icon={<FastForward size={15} />} title="Fast cycle strip" badge="NO GAP" tone="green" />
+        <FastCycleStrip frame={frame} />
         <div className="panel-copy">
           <strong>{frame.routeDetails.primary}</strong>
           <span>{frame.routeDetails.fallback}</span>
@@ -188,6 +235,7 @@ function FocusPanel({ frame }) {
       <aside className="focus-panel spreader-panel">
         <PanelHeader icon={<Camera size={15} />} title="Spreader camera" badge={frame.guidance.beep} tone={frame.guidance.locked ? 'green' : 'amber'} />
         <SpreaderCamera frame={frame} />
+        <SensorList sensors={frame.sensorLabels} />
       </aside>
     );
   }
@@ -196,7 +244,16 @@ function FocusPanel({ frame }) {
     return (
       <aside className="focus-panel safety-panel">
         <PanelHeader icon={<ShieldCheck size={15} />} title="Safety degradation" badge={frame.systemMode} tone={modeTone(frame.systemMode)} />
-        <ModeLadder active={frame.systemMode} />
+        <SafetyFallbackPanel frame={frame} />
+      </aside>
+    );
+  }
+
+  if (frame.visiblePanel === 'resequence') {
+    return (
+      <aside className="focus-panel compatibility-panel">
+        <PanelHeader icon={<AlertTriangle size={15} />} title="Compatibility board" badge={frame.issueActive ? 'EXCEPTION' : 'READY'} tone={frame.issueActive ? 'amber' : 'cyan'} />
+        <CompatibilityBoard frame={frame} />
       </aside>
     );
   }
@@ -215,6 +272,154 @@ function FocusPanel({ frame }) {
       <PanelHeader icon={<Ship size={15} />} title="Crane and vessel workflow" badge={frame.crane.locked ? 'LOCKED' : 'READY'} tone={frame.crane.locked ? 'green' : 'cyan'} />
       <CraneSequence frame={frame} />
     </aside>
+  );
+}
+
+function FeedMatrix({ frame }) {
+  return (
+    <div className="feed-matrix">
+      {frame.dataFeeds.map((feed) => (
+        <div className="feed-row" key={feed.id} style={{ '--feed-color': feed.color }}>
+          <i />
+          <div>
+            <strong>{feed.name}</strong>
+            <span>{feed.origin}</span>
+            <em>{feed.sample}</em>
+          </div>
+          <b>{feed.freshness}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PlcSignalStack({ frame }) {
+  return (
+    <div className="signal-stack">
+      <div className="container-card" style={{ '--container-color': frame.activeContainer.color }}>
+        <strong>{frame.activeContainer.id}</strong>
+        <span>
+          {frame.activeContainer.iso} · {frame.activeContainer.weight} · Bay {frame.activeContainer.bay}
+        </span>
+      </div>
+      {frame.plcSignals.map((signal) => (
+        <div className={`signal-row ${signal.state}`} key={signal.label}>
+          <span>{signal.label}</span>
+          <strong>{signal.value}</strong>
+          <em>{signal.threshold}</em>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MoveRankingBoard({ frame }) {
+  return (
+    <div className="ranking-board">
+      {frame.moves.slice(0, 4).map((move) => (
+        <div className={`move-card ${move.compatible ? 'compatible' : 'blocked'}`} key={move.id} style={{ '--container-color': move.container.color }}>
+          <div>
+            <strong>{move.id}</strong>
+            <span>{move.container.id}</span>
+          </div>
+          <em>
+            {move.container.iso} · {move.container.weight} · Bay {move.container.bay}
+          </em>
+          <b>
+            {move.vehicleId} {move.compatible ? 'can carry' : 'blocked'}
+          </b>
+          <i>{move.score}</i>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CompatibilityBoard({ frame }) {
+  const scene = frame.exceptionScene;
+  const cards = [
+    { label: 'Scheduled first', item: scene.planned, tone: scene.active ? 'red' : 'amber' },
+    { label: 'Rejected', item: scene.rejected, tone: 'red' },
+    { label: 'Recommendation', item: scene.fallback, tone: 'green' }
+  ];
+
+  return (
+    <div className="compat-board">
+      <div className="container-card" style={{ '--container-color': scene.targetContainer.color }}>
+        <strong>{scene.targetContainer.id}</strong>
+        <span>
+          {scene.targetContainer.iso} · needs {scene.targetContainer.requiredChassis}
+        </span>
+      </div>
+      {cards.map((card) => (
+        <div className={`compat-card ${card.tone}`} key={card.label}>
+          <span>{card.label}</span>
+          <strong>{card.item.vehicle.id}</strong>
+          <em>{card.item.reason}</em>
+          <b>{card.item.compatible ? 'Compatible' : 'Not compatible'}</b>
+        </div>
+      ))}
+      <div className="operator-callout">{scene.operatorCallout}</div>
+    </div>
+  );
+}
+
+function FastCycleStrip({ frame }) {
+  return (
+    <div className="cycle-strip">
+      {frame.zeroWaitCycles.map((cycle) => {
+        const container = frame.containers.find((item) => item.id === cycle.containerId);
+        return (
+          <div className={`cycle-card ${cycle.active ? 'active' : ''} ${cycle.loaded ? 'complete' : ''}`} key={cycle.label} style={{ '--container-color': container?.color || '#38bdf8' }}>
+            <div>
+              <strong>{cycle.label}</strong>
+              <span>{cycle.loaded ? 'loaded' : `T+${cycle.seconds}s`}</span>
+            </div>
+            <em>
+              {container?.shortId} {'->'} {cycle.vehicleId} · {cycle.routeStage}
+            </em>
+            <i>
+              <span style={{ width: `${Math.round(cycle.local * 100)}%` }} />
+            </i>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SensorList({ sensors }) {
+  if (!sensors.length) return null;
+  return (
+    <div className="sensor-list">
+      {sensors.map((sensor) => (
+        <div key={sensor.id} style={{ '--sensor-color': sensor.color }}>
+          <i />
+          <span>{sensor.label}</span>
+          <strong>{sensor.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SafetyFallbackPanel({ frame }) {
+  const manual = frame.scenario.id !== 'normal' || frame.systemMode.startsWith('Manual');
+  return (
+    <div className="safety-fallback">
+      <ModeLadder active={frame.systemMode} />
+      <div className={`manual-banner ${manual ? 'active' : ''}`}>
+        {manual ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+        <strong>{manual ? 'Manual completion required' : 'Coordinated path available'}</strong>
+        <span>
+          {frame.scenario.id === 'sensor-dropout'
+            ? 'Proximity confidence dropped below threshold.'
+            : frame.scenario.id === 'vessel-dig'
+              ? 'Source bay must be cleared by operator workflow.'
+              : 'Fallback ladder is visible for the operator.'}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -369,12 +574,13 @@ function EngineRows({ frame }) {
 }
 
 function CraneSequence({ frame }) {
+  const craneFlowActive = ['plc-trigger', 'look-ahead', 'micro-slot', 'spreader-guidance', 'handoff', 'zero-wait'].includes(frame.phaseId);
   const steps = [
-    ['Approach source', frame.phaseId === 'plc-trigger' || frame.crane.locked],
-    ['Lock spreader', frame.crane.locked],
-    ['Hoist clear', frame.crane.carried && frame.crane.hoistY > 2.6],
-    ['Travel landside', frame.crane.trolleyZ < 0.4],
-    ['Release to ITV', frame.crane.containerOnTruck]
+    ['Approach source', frame.phaseId === 'plc-trigger' || (craneFlowActive && frame.crane.locked)],
+    ['Lock spreader', craneFlowActive && frame.crane.locked],
+    ['Hoist clear', craneFlowActive && frame.crane.carried && frame.crane.hoistY > 2.6],
+    ['Travel landside', craneFlowActive && frame.crane.trolleyZ < 0.4],
+    ['Release to ITV', craneFlowActive && frame.crane.containerOnTruck]
   ];
 
   return (
