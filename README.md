@@ -2,6 +2,14 @@
 
 Storyboard-style React/Vite + Three.js demo for the PEMA ZERO-WAIT STS proposal. The simulator walks through the full solution flow: baseline crane waiting, live data feeds, PLC trigger, look-ahead ranking, micro-slot vehicle positioning, dynamic resequencing, spreader guidance, handoff, zero-wait operation, safety modes, and feedback logging.
 
+## Live Demo
+
+Public link:
+
+```text
+https://praharsh-projects.github.io/PEMA/
+```
+
 ## Requirements
 
 - Node.js 20 or newer

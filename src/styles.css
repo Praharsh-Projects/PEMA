@@ -1079,18 +1079,43 @@ button {
 .cycle-label,
 .workflow-label {
   pointer-events: none;
-  padding: 6px 8px;
+  max-width: 190px;
+  padding: 5px 7px;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 6px;
-  background: rgba(3, 7, 18, 0.88);
+  background: rgba(3, 7, 18, 0.9);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.03);
   color: #dbeafe;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0;
-  line-height: 1.1;
+  line-height: 1.14;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+.scene-label.compact,
+.slot-label.compact,
+.engine-label.compact,
+.truck-tag.compact,
+.container-label.compact,
+.feed-label.compact,
+.sensor-label.compact,
+.exception-label.compact,
+.cycle-label.compact,
+.workflow-label.compact {
+  max-width: 154px;
+  padding: 4px 6px;
+  font-size: 9px;
+  line-height: 1.12;
+}
+
+.scene-label.tiny,
+.slot-label.tiny,
+.truck-chassis.tiny {
+  max-width: 112px;
+  padding: 3px 6px;
+  font-size: 8px;
 }
 
 .scene-label.muted {
@@ -1119,7 +1144,7 @@ button {
 }
 
 .truck-tag {
-  max-width: 190px;
+  max-width: 148px;
   color: #f8fafc;
   line-height: 1.15;
   white-space: normal;
@@ -1139,9 +1164,9 @@ button {
 .feed-label,
 .sensor-label {
   display: grid;
-  gap: 4px;
-  min-width: 154px;
-  max-width: 260px;
+  gap: 2px;
+  min-width: 104px;
+  max-width: 154px;
   white-space: normal;
   text-align: left;
 }
@@ -1149,14 +1174,14 @@ button {
 .feed-label strong,
 .sensor-label strong {
   color: var(--text);
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .feed-label span,
 .sensor-label span,
 .feed-label em {
   color: #94a3b8;
-  font-size: 9px;
+  font-size: 8px;
   font-style: normal;
   line-height: 1.15;
 }
@@ -1169,7 +1194,7 @@ button {
 .engine-label {
   display: grid;
   gap: 3px;
-  min-width: 210px;
+  min-width: 142px;
   border-color: rgba(56, 189, 248, 0.42);
   color: var(--cyan);
   white-space: normal;
@@ -1177,12 +1202,12 @@ button {
 
 .engine-label strong {
   color: var(--cyan);
-  font-size: 13px;
+  font-size: 10px;
 }
 
 .engine-label span {
   color: #cbd5e1;
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1.2;
 }
 
@@ -1191,8 +1216,8 @@ button {
 }
 
 .exception-label {
-  min-width: 150px;
-  max-width: 220px;
+  min-width: 126px;
+  max-width: 168px;
   white-space: normal;
   line-height: 1.25;
 }

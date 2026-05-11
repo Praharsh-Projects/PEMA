@@ -857,25 +857,31 @@ function getPlcSignals(phaseId, progress, crane, container) {
 
 function getSensorLabels(phaseId, scenarioId, issueActive) {
   const micro = [
-    { id: 'gps-vmt', label: 'GPS / VMT', value: 'ETA + lane', position: [-4.7, 0.92, LANES.lane2.z - 0.55], color: '#4ade80' },
-    { id: 'lane-beacon', label: 'Lane beacon', value: 'Lane 2 ID', position: [-1.8, 0.35, LANES.lane2.z + 0.62], color: '#38bdf8' },
-    { id: 'slot-camera', label: 'Slot camera', value: 'Centering', position: [0.82, 1.25, LANES.lane2.z + 0.74], color: '#fbbf24' },
-    { id: 'stop-line', label: 'Stop-line sensor', value: 'Wheel stop', position: [0.25, 0.25, LANES.lane2.z - 0.62], color: '#a78bfa' }
+    { id: 'gps-vmt', label: 'GPS / VMT', value: 'ETA + lane', position: [-4.7, 0.92, LANES.lane2.z - 0.55], labelOffset: [-0.32, 0.42, -0.24], color: '#4ade80' },
+    { id: 'lane-beacon', label: 'Lane beacon', value: 'Lane 2 ID', position: [-1.8, 0.35, LANES.lane2.z + 0.62], labelOffset: [-0.58, 0.44, 0.12], color: '#38bdf8' },
+    { id: 'slot-camera', label: 'Slot camera', value: 'Centering', position: [0.82, 1.25, LANES.lane2.z + 0.74], labelOffset: [0.52, 0.34, 0.22], color: '#fbbf24' },
+    { id: 'stop-line', label: 'Stop-line', value: 'Wheel stop', position: [0.25, 0.25, LANES.lane2.z - 0.62], labelOffset: [0.42, 0.38, -0.24], color: '#a78bfa' }
   ];
   const spreader = [
-    { id: 'spreader-camera', label: 'Spreader camera', value: 'Guide rails', position: [0.0, 1.82, LANES.lane2.z - 0.55], color: '#38bdf8' },
-    { id: 'proximity', label: 'Proximity sensors', value: '0.2-3.0 m', position: [-0.78, 1.58, LANES.lane2.z + 0.42], color: '#4ade80' },
-    { id: 'load-cell', label: 'Load cell', value: '18.2 t', position: [0.7, 2.35, LANES.lane2.z], color: '#fbbf24' },
-    { id: 'twistlock', label: 'Twistlock sensors', value: '4 corners', position: [0.82, 1.58, LANES.lane2.z + 0.42], color: '#4ade80' },
-    { id: 'hoist-encoder', label: 'Hoist encoder', value: 'Height', position: [-0.72, 3.1, LANES.lane2.z - 0.1], color: '#93c5fd' }
+    { id: 'spreader-camera', label: 'Camera', value: 'Guide rails', position: [0.0, 1.82, LANES.lane2.z - 0.55], labelOffset: [-0.76, 0.3, -0.12], color: '#38bdf8' },
+    { id: 'proximity', label: 'Proximity', value: '0.2-3.0 m', position: [-0.78, 1.58, LANES.lane2.z + 0.42], labelOffset: [-0.72, 0.24, 0.18], color: '#4ade80' },
+    { id: 'load-cell', label: 'Load cell', value: '18.2 t', position: [0.7, 2.35, LANES.lane2.z], labelOffset: [0.68, 0.32, -0.08], color: '#fbbf24' },
+    { id: 'twistlock', label: 'Twistlocks', value: '4 corners', position: [0.82, 1.58, LANES.lane2.z + 0.42], labelOffset: [0.76, 0.2, 0.16], color: '#4ade80' },
+    { id: 'hoist-encoder', label: 'Hoist encoder', value: 'Height', position: [-0.72, 3.1, LANES.lane2.z - 0.1], labelOffset: [-0.42, 0.52, -0.18], color: '#93c5fd' }
+  ];
+  const plc = [
+    { id: 'hoist-encoder', label: 'Hoist encoder', value: 'Height', position: [-0.74, 3.18, WORLD.source.z - 0.08], labelOffset: [-0.86, 0.5, 0.08], color: '#93c5fd' },
+    { id: 'load-cell', label: 'Load cell', value: 'Weight', position: [0.74, 2.46, WORLD.source.z - 0.04], labelOffset: [0.76, 0.38, 0.1], color: '#fbbf24' },
+    { id: 'twistlock', label: 'Twistlocks', value: 'Lock state', position: [0.0, 2.02, WORLD.source.z + 0.44], labelOffset: [0.12, -0.42, 0.58], color: '#4ade80' },
+    { id: 'anti-sway', label: 'Anti-sway', value: 'Damping', position: [-0.46, 2.82, WORLD.source.z - 0.52], labelOffset: [-0.72, 0.18, -0.34], color: '#38bdf8' }
   ];
   if (phaseId === 'micro-slot') return micro;
   if (phaseId === 'spreader-guidance' || phaseId === 'handoff') return spreader;
-  if (phaseId === 'plc-trigger') return spreader.slice(2).concat(micro.slice(2, 3));
+  if (phaseId === 'plc-trigger') return plc;
   if (phaseId === 'dynamic-resequence' && issueActive) {
     return [
-      { id: 'traffic', label: 'Traffic delay', value: scenarioId === 'late-truck' ? 'ITV-122 blocked' : 'Bay dig blocks move', position: [WORLD.queueWindow.x, 1.2, LANES.lane1.z - 0.55], color: '#f87171' },
-      { id: 'compatibility', label: 'Compatibility gate', value: '40HC only', position: [-1.15, 0.95, LANES.lane2.z - 0.55], color: '#4ade80' }
+      { id: 'traffic', label: 'Traffic delay', value: scenarioId === 'late-truck' ? 'ITV-122 blocked' : 'Bay dig blocks move', position: [WORLD.queueWindow.x, 1.2, LANES.lane1.z - 0.55], labelOffset: [-0.55, 0.38, -0.12], color: '#f87171' },
+      { id: 'compatibility', label: 'Compatibility', value: '40HC only', position: [-1.15, 0.95, LANES.lane2.z - 0.55], labelOffset: [0.55, 0.34, -0.18], color: '#4ade80' }
     ];
   }
   return [];

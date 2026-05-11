@@ -21,17 +21,23 @@ import {
   Zap
 } from 'lucide-react';
 import PortScene from './PortScene.jsx';
-import { PHASES, SCENARIOS, getElapsedForPhase, getPhaseByElapsed, resolveFrame } from './scenario.js';
+import { PHASES, SCENARIOS, resolveFrame } from './scenario.js';
 
 const speedOptions = [0.5, 1, 2];
 
 export default function App() {
-  const [elapsed, setElapsed] = useState(0);
+  const [selectedPhaseIndex, setSelectedPhaseIndex] = useState(0);
+  const [phaseElapsedMs, setPhaseElapsedMs] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [scenarioId, setScenarioId] = useState('normal');
+  const selectedPhaseRef = useRef(selectedPhaseIndex);
   const playingRef = useRef(playing);
   const speedRef = useRef(speed);
+
+  useEffect(() => {
+    selectedPhaseRef.current = selectedPhaseIndex;
+  }, [selectedPhaseIndex]);
 
   useEffect(() => {
     playingRef.current = playing;
@@ -49,7 +55,10 @@ export default function App() {
       const delta = Math.min(now - last, 80);
       last = now;
       if (playingRef.current) {
-        setElapsed((current) => current + delta * speedRef.current);
+        setPhaseElapsedMs((current) => {
+          const duration = PHASES[selectedPhaseRef.current]?.durationMs || 1;
+          return (current + delta * speedRef.current) % duration;
+        });
       }
       raf = requestAnimationFrame(tick);
     };
@@ -58,7 +67,17 @@ export default function App() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const phaseInfo = useMemo(() => getPhaseByElapsed(elapsed), [elapsed]);
+  const phaseInfo = useMemo(() => {
+    const phase = PHASES[selectedPhaseIndex];
+    const localMs = ((phaseElapsedMs % phase.durationMs) + phase.durationMs) % phase.durationMs;
+    return {
+      index: selectedPhaseIndex,
+      phase,
+      localMs,
+      progress: localMs / phase.durationMs
+    };
+  }, [phaseElapsedMs, selectedPhaseIndex]);
+
   const frame = useMemo(
     () => resolveFrame(phaseInfo.phase, phaseInfo.progress, scenarioId),
     [phaseInfo.phase, phaseInfo.progress, scenarioId]
@@ -66,11 +85,13 @@ export default function App() {
 
   const jumpToPhase = (index) => {
     const wrapped = (index + PHASES.length) % PHASES.length;
-    setElapsed(getElapsedForPhase(wrapped));
+    setSelectedPhaseIndex(wrapped);
+    setPhaseElapsedMs(0);
+    setPlaying(true);
   };
 
   const restart = () => {
-    setElapsed(0);
+    setPhaseElapsedMs(0);
     setPlaying(true);
   };
 
@@ -122,7 +143,7 @@ export default function App() {
           {PHASES.map((phase, index) => (
             <button
               key={phase.phaseId}
-              className={`phase-card ${index === phaseInfo.index ? 'active' : ''} ${index < phaseInfo.index ? 'done' : ''}`}
+              className={`phase-card ${index === phaseInfo.index ? 'active' : ''}`}
               type="button"
               onClick={() => jumpToPhase(index)}
             >
@@ -160,7 +181,7 @@ export default function App() {
         <button className="icon-btn" type="button" onClick={() => jumpToPhase(phaseInfo.index + 1)} aria-label="Next phase">
           <ChevronRight size={18} />
         </button>
-        <button className="icon-btn" type="button" onClick={restart} aria-label="Restart simulation">
+        <button className="icon-btn" type="button" onClick={restart} aria-label="Restart current phase">
           <RotateCcw size={17} />
         </button>
         <div className="speed-group" aria-label="Playback speed">
