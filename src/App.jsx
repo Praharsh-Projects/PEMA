@@ -21,11 +21,13 @@ import {
   Zap
 } from 'lucide-react';
 import PortScene from './PortScene.jsx';
+import ImplementationLab from './ImplementationLab.jsx';
 import { PHASES, SCENARIOS, resolveFrame } from './scenario.js';
 
 const speedOptions = [0.5, 1, 2];
 
 export default function App() {
+  const [view, setView] = useState(() => (window.location.hash === '#implementation' ? 'implementation' : 'pitch'));
   const [selectedPhaseIndex, setSelectedPhaseIndex] = useState(0);
   const [phaseElapsedMs, setPhaseElapsedMs] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -34,6 +36,12 @@ export default function App() {
   const selectedPhaseRef = useRef(selectedPhaseIndex);
   const playingRef = useRef(playing);
   const speedRef = useRef(speed);
+
+  useEffect(() => {
+    const onHashChange = () => setView(window.location.hash === '#implementation' ? 'implementation' : 'pitch');
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   useEffect(() => {
     selectedPhaseRef.current = selectedPhaseIndex;
@@ -95,6 +103,15 @@ export default function App() {
     setPlaying(true);
   };
 
+  const switchView = (nextView) => {
+    window.location.hash = nextView === 'implementation' ? 'implementation' : '';
+    setView(nextView);
+  };
+
+  if (view === 'implementation') {
+    return <ImplementationLab onBack={() => switchView('pitch')} />;
+  }
+
   return (
     <main className={`app-shell focus-${frame.focusZone}`}>
       <PortScene frame={frame} />
@@ -111,6 +128,9 @@ export default function App() {
         </div>
 
         <div className="top-status">
+          <button type="button" className="view-switch" onClick={() => switchView('implementation')}>
+            MVP console
+          </button>
           <StatusChip icon={<Activity size={14} />} label="Mode" value={frame.systemMode} tone={modeTone(frame.systemMode)} />
           <StatusChip icon={<Gauge size={14} />} label="Idle saved" value={`${frame.metrics.idleSaved}s`} tone="green" />
           <StatusChip icon={<Zap size={14} />} label="Moves/hr" value={frame.metrics.movesHour} tone="cyan" />
