@@ -1,8 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, Line, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { LANES, WORLD } from './scenario.js';
+import { FIXED_QUAY_CAMERA, LANES, WORLD } from './scenario.js';
 
 const toneColors = {
   cyan: '#38bdf8',
@@ -17,7 +17,7 @@ export default function PortScene({ frame }) {
     <Canvas
       shadows
       dpr={[1, 1.55]}
-      camera={{ position: [6.6, 5.3, 6.5], fov: 42, near: 0.1, far: 120 }}
+      camera={{ position: FIXED_QUAY_CAMERA.position, fov: FIXED_QUAY_CAMERA.fov, near: 0.1, far: 120 }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <color attach="background" args={['#06101d']} />
@@ -42,35 +42,35 @@ export default function PortScene({ frame }) {
 
 function CameraRig({ pose }) {
   const { camera } = useThree();
-  const targetRef = useRef(new THREE.Vector3(...pose.target));
-  const desiredPosition = useMemo(() => new THREE.Vector3(), []);
-  const desiredTarget = useMemo(() => new THREE.Vector3(), []);
+  const target = useMemo(() => new THREE.Vector3(), []);
 
-  useFrame((_, delta) => {
-    desiredPosition.set(...pose.position);
-    desiredTarget.set(...pose.target);
-    const alpha = 1 - Math.exp(-delta * 2.75);
-    camera.position.lerp(desiredPosition, alpha);
-    camera.fov += (pose.fov - camera.fov) * alpha;
+  useEffect(() => {
+    camera.position.set(...pose.position);
+    camera.fov = pose.fov;
     camera.updateProjectionMatrix();
-    targetRef.current.lerp(desiredTarget, alpha);
-    camera.lookAt(targetRef.current);
-  });
+    target.set(...pose.target);
+    camera.lookAt(target);
+  }, [camera, pose, target]);
 
   return null;
 }
 
 function PortWorld({ frame }) {
+  const truckLabels = getTruckLabelConfig(frame);
   return (
     <group>
       <GroundAndLanes frame={frame} />
-      <Ship sourceContainer={frame.sourceContainer} />
-      <ContainerYard />
+      <Ship frame={frame} />
+      <ContainerYard frame={frame} />
       <STS crane={frame.crane} guidance={frame.guidance} focusZone={frame.focusZone} />
-      <Truck {...frame.trucks.itv108} color="#eab308" accent="#38bdf8" />
-      <Truck {...frame.trucks.itv115} color="#facc15" accent={toneColors[frame.trucks.itv115.tone] || '#fbbf24'} />
-      <Truck {...frame.trucks.itv122} color="#64748b" accent={toneColors[frame.trucks.itv122.tone] || '#94a3b8'} />
+      <SceneFocus frame={frame} />
+      <Truck {...frame.trucks.itv108} color="#eab308" accent="#38bdf8" labelConfig={truckLabels.itv108} />
+      <Truck {...frame.trucks.itv115} color="#facc15" accent={toneColors[frame.trucks.itv115.tone] || '#fbbf24'} labelConfig={truckLabels.itv115} />
+      <Truck {...frame.trucks.itv122} color="#64748b" accent={toneColors[frame.trucks.itv122.tone] || '#94a3b8'} labelConfig={truckLabels.itv122} />
       <DataFeedNetwork frame={frame} />
+      <SensorMarkers frame={frame} />
+      <ExceptionCallouts frame={frame} />
+      <ZeroWaitGhosts frame={frame} />
       <SafetyModeTower frame={frame} />
     </group>
   );
@@ -81,6 +81,9 @@ function GroundAndLanes({ frame }) {
   const slotColor = micro.centered ? '#4ade80' : '#38bdf8';
   const routeColor = micro.primaryBlocked ? '#f87171' : '#38bdf8';
   const fallbackColor = frame.issueActive ? '#4ade80' : '#fbbf24';
+  const showLaneLabels = ['micro-slot', 'spreader-guidance', 'handoff', 'dynamic-resequence', 'zero-wait', 'safety-modes'].includes(frame.phaseId);
+  const showPrimarySlot = ['baseline-wait', 'micro-slot', 'spreader-guidance', 'handoff', 'zero-wait'].includes(frame.phaseId);
+  const showSupportSlots = ['micro-slot', 'zero-wait'].includes(frame.phaseId);
 
   return (
     <group>
@@ -95,15 +98,17 @@ function GroundAndLanes({ frame }) {
       {Object.values(LANES).map((lane) => (
         <group key={lane.id}>
           <Line points={[[-7.4, 0.07, lane.z], [7.4, 0.07, lane.z]]} color="#fbbf24" lineWidth={1} dashed dashSize={0.35} gapSize={0.22} transparent opacity={lane.id === 'buffer' ? 0.28 : 0.42} />
-          <HtmlLabel position={[-7.3, 0.14, lane.z - 0.34]} className="scene-label muted">
-            {lane.label}
-          </HtmlLabel>
+          {showLaneLabels ? (
+            <HtmlLabel position={[6.55, 0.14, lane.z - 0.34]} className="scene-label tiny muted">
+              {lane.label}
+            </HtmlLabel>
+          ) : null}
         </group>
       ))}
 
-      <SlotBox x={WORLD.slot.x} z={WORLD.slot.z} color={slotColor} label="STS handoff · Slot B" active={micro.active} />
-      <SlotBox x={WORLD.arrivalWindow.x} z={WORLD.arrivalWindow.z} color="#38bdf8" label="Arrival window" active={micro.active} small />
-      <SlotBox x={WORLD.fallbackWindow.x} z={WORLD.fallbackWindow.z} color={fallbackColor} label="Fallback buffer" active={micro.active || frame.issueActive} small />
+      <SlotBox x={WORLD.slot.x} z={WORLD.slot.z} color={slotColor} label="Slot B" active={micro.active} showLabel={showPrimarySlot} />
+      <SlotBox x={WORLD.arrivalWindow.x} z={WORLD.arrivalWindow.z} color="#38bdf8" label="Arrival" active={micro.active} showLabel={showSupportSlots} small />
+      <SlotBox x={WORLD.fallbackWindow.x} z={WORLD.fallbackWindow.z} color={fallbackColor} label="Buffer" active={micro.active || frame.issueActive} showLabel={showSupportSlots} small />
 
       {micro.active ? (
         <>
@@ -125,7 +130,7 @@ function GroundAndLanes({ frame }) {
             color={fallbackColor}
             opacity={frame.issueActive ? 0.85 : 0.32}
           />
-          <HtmlLabel position={[WORLD.arrivalWindow.x, 0.5, WORLD.arrivalWindow.z - 0.6]} className={micro.centered ? 'slot-label locked' : 'slot-label'}>
+          <HtmlLabel position={[WORLD.arrivalWindow.x, 0.5, WORLD.arrivalWindow.z - 0.6]} className={micro.centered ? 'slot-label compact locked' : 'slot-label compact'}>
             ETA {micro.etaSeconds}s · Lane 2
           </HtmlLabel>
         </>
@@ -134,7 +139,7 @@ function GroundAndLanes({ frame }) {
   );
 }
 
-function SlotBox({ x, z, color, label, active, small = false }) {
+function SlotBox({ x, z, color, label, active, showLabel, small = false }) {
   const halfX = small ? 0.85 : 1.15;
   const halfZ = 0.42;
   return (
@@ -155,14 +160,19 @@ function SlotBox({ x, z, color, label, active, small = false }) {
         transparent
         opacity={active ? 0.88 : 0.32}
       />
-      <HtmlLabel position={[x, 0.18, z + 0.55]} className="slot-label">
-        {label}
-      </HtmlLabel>
+      {showLabel ? (
+        <HtmlLabel position={[x, 0.18, z + 0.55]} className={small ? 'slot-label tiny' : 'slot-label compact'}>
+          {label}
+        </HtmlLabel>
+      ) : null}
     </group>
   );
 }
 
-function Ship({ sourceContainer }) {
+function Ship({ frame }) {
+  const { sourceContainer } = frame;
+  const showSourceLabel = ['baseline-wait', 'data-feeds', 'plc-trigger', 'look-ahead'].includes(frame.phaseId);
+  const showPickedLabel = ['look-ahead', 'micro-slot'].includes(frame.phaseId);
   const deckContainers = useMemo(() => {
     const colors = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
     const items = [];
@@ -192,14 +202,14 @@ function Ship({ sourceContainer }) {
       ))}
       {sourceContainer.visible ? (
         <group>
-          <Container3D position={[WORLD.source.x, WORLD.source.y, WORLD.source.z]} color="#ef4444" scale={[0.88, 0.88, 0.88]} />
+          <Container3D position={[sourceContainer.position.x, sourceContainer.position.y, sourceContainer.position.z]} color={sourceContainer.color} scale={sourceContainer.scale} />
           <Line
             points={[
-              [-0.86, 2.08, WORLD.source.z - 0.4],
-              [0.86, 2.08, WORLD.source.z - 0.4],
-              [0.86, 2.08, WORLD.source.z + 0.4],
-              [-0.86, 2.08, WORLD.source.z + 0.4],
-              [-0.86, 2.08, WORLD.source.z - 0.4]
+              [sourceContainer.position.x - 0.86, 2.08, sourceContainer.position.z - 0.4],
+              [sourceContainer.position.x + 0.86, 2.08, sourceContainer.position.z - 0.4],
+              [sourceContainer.position.x + 0.86, 2.08, sourceContainer.position.z + 0.4],
+              [sourceContainer.position.x - 0.86, 2.08, sourceContainer.position.z + 0.4],
+              [sourceContainer.position.x - 0.86, 2.08, sourceContainer.position.z - 0.4]
             ]}
             color={sourceContainer.locked ? '#4ade80' : '#fbbf24'}
             lineWidth={2.2}
@@ -207,23 +217,28 @@ function Ship({ sourceContainer }) {
             dashSize={0.1}
             gapSize={0.08}
           />
-          <HtmlLabel position={[WORLD.source.x, 2.4, WORLD.source.z + 0.7]} className="slot-label">
-            Source bay · vessel
-          </HtmlLabel>
+          {showSourceLabel ? (
+            <HtmlLabel position={[sourceContainer.position.x, 2.45, sourceContainer.position.z + 0.78]} className="slot-label compact">
+              Vessel pick · {sourceContainer.shortId}
+            </HtmlLabel>
+          ) : null}
         </group>
-      ) : (
-        <HtmlLabel position={[WORLD.source.x, 2.25, WORLD.source.z + 0.7]} className="slot-label locked">
-          Picked from vessel bay
+      ) : showPickedLabel ? (
+        <HtmlLabel position={[sourceContainer.position.x, 2.35, sourceContainer.position.z + 0.78]} className="slot-label compact locked">
+          Picked · {sourceContainer.shortId}
         </HtmlLabel>
-      )}
-      <HtmlLabel position={[0, 0.96, 3.95]} className="scene-label muted">
-        MV Nordic Peak · vessel side
-      </HtmlLabel>
+      ) : null}
+      {['baseline-wait', 'data-feeds', 'plc-trigger', 'look-ahead'].includes(frame.phaseId) ? (
+        <HtmlLabel position={[0, 0.96, 3.95]} className="scene-label tiny muted">
+          Vessel side
+        </HtmlLabel>
+      ) : null}
     </group>
   );
 }
 
-function ContainerYard() {
+function ContainerYard({ frame }) {
+  const showLabel = frame.phaseId === 'data-feeds';
   const stacks = useMemo(() => {
     const colors = ['#2563eb', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
     const items = [];
@@ -244,16 +259,75 @@ function ContainerYard() {
       {stacks.map((item) => (
         <Container3D key={item.key} position={item.position} color={item.color} scale={[0.78, 0.78, 0.78]} dimmed />
       ))}
-      <HtmlLabel position={[5.9, 2.35, -3.65]} className="scene-label muted">
-        Yard stacks
-      </HtmlLabel>
+      {showLabel ? (
+        <HtmlLabel position={[5.9, 2.35, -3.65]} className="scene-label tiny muted">
+          Yard readiness
+        </HtmlLabel>
+      ) : null}
+    </group>
+  );
+}
+
+function SceneFocus({ frame }) {
+  const source = frame.sourceContainer.position;
+  const pathActive = ['plc-trigger', 'look-ahead', 'micro-slot', 'spreader-guidance', 'handoff', 'zero-wait'].includes(frame.phaseId);
+  const sourceActive = ['plc-trigger', 'look-ahead'].includes(frame.phaseId);
+  const slotActive = ['micro-slot', 'spreader-guidance', 'handoff'].includes(frame.phaseId);
+  const engineActive = frame.phaseId === 'feedback-loop';
+  const safetyActive = frame.focusZone === 'safety';
+
+  return (
+    <group>
+      <Line
+        points={[
+          [source.x, 2.28, source.z],
+          [source.x, 4.25, source.z],
+          [WORLD.slot.x, 4.25, WORLD.slot.z],
+          [WORLD.slot.x, 1.52, WORLD.slot.z]
+        ]}
+        color={pathActive ? '#38bdf8' : '#64748b'}
+        lineWidth={pathActive ? 2.6 : 1}
+        dashed
+        dashSize={0.18}
+        gapSize={0.12}
+        transparent
+        opacity={pathActive ? 0.82 : 0.16}
+      />
+      <mesh position={[source.x, 2.15, source.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.64, 0.78, 40]} />
+        <meshBasicMaterial color={sourceActive ? '#fbbf24' : '#38bdf8'} transparent opacity={sourceActive ? 0.72 : 0.24} />
+      </mesh>
+      <mesh position={[WORLD.slot.x, 0.13, WORLD.slot.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.26, 1.42, 56]} />
+        <meshBasicMaterial color={slotActive ? '#4ade80' : '#38bdf8'} transparent opacity={slotActive ? 0.38 : 0.13} />
+      </mesh>
+      {sourceActive ? (
+        <HtmlLabel position={[source.x - 1.25, 3.0, source.z + 0.08]} className="workflow-label compact active amber">
+          Pick source
+        </HtmlLabel>
+      ) : null}
+      {slotActive ? (
+        <HtmlLabel position={[WORLD.slot.x + 1.25, 1.15, WORLD.slot.z - 0.08]} className="workflow-label compact active green">
+          {frame.phaseId === 'micro-slot' ? 'Slot B target' : 'Land on ITV'}
+        </HtmlLabel>
+      ) : null}
+      {engineActive ? (
+        <HtmlLabel position={[-2.75, 1.74, -0.52]} className="workflow-label active cyan">
+          Coordination layer
+        </HtmlLabel>
+      ) : null}
+      {safetyActive ? (
+        <HtmlLabel position={[2.85, 1.96, -0.25]} className="workflow-label active amber">
+          Safety / manual fallback
+        </HtmlLabel>
+      ) : null}
     </group>
   );
 }
 
 function STS({ crane, guidance, focusZone }) {
   const { trolleyX, trolleyZ, hoistY } = crane;
-  const structureOpacity = focusZone === 'slot' ? 0.46 : 1;
+  const structureOpacity = ['slot', 'guide', 'exception'].includes(focusZone) ? 0.38 : 0.54;
   const cableOffsets = [
     [-0.52, -0.23],
     [0.52, -0.23],
@@ -293,7 +367,28 @@ function STS({ crane, guidance, focusZone }) {
 
       <group position={[trolleyX, hoistY, trolleyZ]}>
         <Spreader locked={crane.locked || guidance.locked} />
-        {crane.carried ? <Container3D position={[0, -0.5, 0]} color="#ef4444" scale={[0.9, 0.9, 0.9]} /> : null}
+        {crane.carried ? (
+          <group>
+            {[
+              [-0.66, -0.25],
+              [0.66, -0.25],
+              [-0.66, 0.25],
+              [0.66, 0.25]
+            ].map(([x, z]) => (
+              <group key={`${x}-${z}`}>
+                <Line points={[[x, -0.08, z], [x, -0.27, z]]} color={crane.locked ? '#4ade80' : '#fbbf24'} lineWidth={1.5} />
+                <mesh position={[x, -0.3, z]}>
+                  <sphereGeometry args={[0.045, 10, 8]} />
+                  <meshStandardMaterial color={crane.locked ? '#4ade80' : '#fbbf24'} emissive={crane.locked ? '#4ade80' : '#fbbf24'} emissiveIntensity={1.2} />
+                </mesh>
+              </group>
+            ))}
+            <Container3D position={[0, -0.5, 0]} color={crane.container.color} scale={crane.container.scale} />
+            <HtmlLabel position={[0, -0.05, 0.56]} className="container-label">
+              {crane.container.shortId} · {crane.container.iso}
+            </HtmlLabel>
+          </group>
+        ) : null}
       </group>
 
       {guidance.active ? (
@@ -312,9 +407,6 @@ function OperatorCabin() {
       <Block position={[0, 0, 0]} args={[0.72, 0.48, 0.52]} color="#193049" metalness={0.1} />
       <Block position={[0, 0.03, -0.28]} args={[0.58, 0.28, 0.04]} color="#fde047" emissive="#fde047" emissiveIntensity={0.12} opacity={0.48} />
       <HumanFigure position={[0, -0.1, -0.18]} scale={0.42} color="#07111f" />
-      <HtmlLabel position={[0, 0.58, -0.35]} className="scene-label">
-        Operator cabin
-      </HtmlLabel>
     </group>
   );
 }
@@ -343,8 +435,9 @@ function Spreader({ locked }) {
   );
 }
 
-function Truck({ id, x, z, color, accent, loaded, target, status, tone }) {
+function Truck({ id, x, z, color, accent, loaded, loadedContainer, target, status, tone, chassis, labelConfig }) {
   const opacity = tone === 'muted' ? 0.62 : 1;
+  const loadPosition = getTruckLoadPosition(loadedContainer);
   return (
     <group position={[x, 0.12, z]}>
       <Block position={[0.12, 0.34, 0]} args={[2.25, 0.18, 0.72]} color="#374151" opacity={opacity} metalness={0.35} />
@@ -352,7 +445,7 @@ function Truck({ id, x, z, color, accent, loaded, target, status, tone }) {
       <Block position={[-1.03, 0.68, -0.38]} args={[0.42, 0.22, 0.04]} color="#1e3a5f" opacity={0.7} />
       <Block position={[0.33, 0.5, 0]} args={[1.7, 0.08, 0.58]} color="#111827" opacity={opacity} metalness={0.2} />
       <DriverFigure />
-      {loaded ? <Container3D position={[0.38, 0.88, 0]} color="#ef4444" scale={[0.92, 0.92, 0.9]} /> : null}
+      {loaded && loadedContainer ? <Container3D position={loadPosition} color={loadedContainer.color} scale={loadedContainer.scale} /> : null}
       {[-0.88, -0.48, 0.72, 1.05].map((wheelX) => (
         <Wheel key={wheelX} position={[wheelX, 0.18, -0.43]} radius={0.13} />
       ))}
@@ -366,11 +459,25 @@ function Truck({ id, x, z, color, accent, loaded, target, status, tone }) {
           <meshBasicMaterial color={accent} transparent opacity={0.28} />
         </mesh>
       ) : null}
-      <HtmlLabel position={[0.05, 1.12, 0]} className={target ? 'truck-tag active' : 'truck-tag'}>
-        {id} · {status}
-      </HtmlLabel>
+      {labelConfig?.show ? (
+        <HtmlLabel position={labelConfig.position || [0.05, 1.12, 0]} className={target ? 'truck-tag compact active' : 'truck-tag compact'}>
+          {labelConfig.label || `${id} · ${status}`}
+        </HtmlLabel>
+      ) : null}
+      {labelConfig?.showChassis ? (
+        <HtmlLabel position={[0.05, 0.08, 0.62]} className="truck-chassis tiny">
+          {labelConfig.chassisLabel || chassis}
+        </HtmlLabel>
+      ) : null}
     </group>
   );
+}
+
+function getTruckLoadPosition(container) {
+  if (!container) return [0.32, 0.82, 0];
+  if (container.sizeFt <= 20) return [0.12, 0.82, 0];
+  if (container.sizeFt >= 45) return [0.36, 0.82, 0];
+  return [0.32, 0.82, 0];
 }
 
 function DriverFigure() {
@@ -396,33 +503,121 @@ function HumanFigure({ position = [0, 0, 0], scale = 1, color = '#0f172a' }) {
 }
 
 function DataFeedNetwork({ frame }) {
-  const active = ['engine', 'safety'].includes(frame.focusZone) || frame.issueActive;
-  const activity = active ? 1 : 0.18;
-  const engine = [-4.9, 0.9, -0.25];
-  const nodes = [
-    { id: 'TOS / BAPLIE', position: [-6.6, 1.12, 0.55], color: '#38bdf8' },
-    { id: 'PLC trigger', position: [-1.1, 4.15, 1.15], color: '#fbbf24' },
-    { id: 'GPS / VMT', position: [-6.8, 0.95, -2.35], color: '#4ade80' },
-    { id: 'Yard ready', position: [-5.9, 1.0, -3.55], color: '#a78bfa' },
-    { id: 'Wind 8 m/s', position: [-2.6, 1.8, 0.85], color: '#93c5fd' }
-  ];
+  const feedPhase = frame.phaseId === 'data-feeds';
+  const enginePhase = feedPhase || frame.phaseId === 'feedback-loop';
+  const activity = feedPhase ? 1 : enginePhase ? 0.58 : 0.18;
+  const engine = [-2.75, 1.02, -0.58];
+  const nodes = frame.dataFeeds;
 
   return (
     <group>
-      <Block position={engine} args={[1.2, 0.48, 0.72]} color="#0f2742" emissive={frame.issueActive ? frame.scenario.color : '#38bdf8'} emissiveIntensity={0.1 + activity * 0.22} />
-      <HtmlLabel position={[engine[0], engine[1] + 0.55, engine[2]]} className="engine-label">
-        Coordination engine
-      </HtmlLabel>
+      <Block position={engine} args={[1.58, 0.58, 0.92]} color="#0f2742" emissive={frame.issueActive ? frame.scenario.color : '#38bdf8'} emissiveIntensity={0.12 + activity * 0.34} />
+      <Line
+        points={[
+          [engine[0] - 0.92, engine[1] + 0.34, engine[2] - 0.54],
+          [engine[0] + 0.92, engine[1] + 0.34, engine[2] - 0.54]
+        ]}
+        color="#38bdf8"
+        lineWidth={2.4}
+        transparent
+        opacity={0.28 + activity * 0.42}
+      />
+      {enginePhase ? (
+        <HtmlLabel position={[engine[0], engine[1] + 0.72, engine[2] - 0.12]} className="engine-label compact active">
+          <strong>Coordination engine</strong>
+          <span>No crane control</span>
+        </HtmlLabel>
+      ) : null}
       {nodes.map((node, i) => (
         <group key={node.id}>
-          <Block position={node.position} args={[0.86, 0.25, 0.42]} color="#111827" emissive={node.color} emissiveIntensity={activity * 0.18} opacity={0.9} />
-          <Line points={[node.position, engine]} color={node.color} transparent opacity={0.08 + activity * 0.26} lineWidth={1.1} />
+          <Block position={node.position} args={[0.96, 0.28, 0.5]} color="#111827" emissive={node.color} emissiveIntensity={activity * 0.24} opacity={0.92} />
+          <Line points={[node.position, engine]} color={node.color} transparent opacity={0.14 + activity * 0.38} lineWidth={feedPhase ? 1.8 : 1.1} />
           <DataPulse from={node.position} to={engine} color={node.color} activity={activity} offset={i * 0.17} />
-          <HtmlLabel position={[node.position[0], node.position[1] + 0.32, node.position[2]]} className="scene-label">
-            {node.id}
+          {feedPhase ? (
+            <HtmlLabel position={getFeedLabelPosition(node)} className="feed-label compact active">
+              <strong>{node.name}</strong>
+              <span>
+                {node.origin} · {node.freshness}
+              </span>
+            </HtmlLabel>
+          ) : null}
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function SensorMarkers({ frame }) {
+  if (!frame.sensorLabels.length) return null;
+  return (
+    <group>
+      {frame.sensorLabels.filter((sensor) => sensor.sceneVisible !== false).map((sensor) => (
+        <group key={sensor.id} position={sensor.position}>
+          <mesh>
+            <sphereGeometry args={[0.08, 14, 10]} />
+            <meshStandardMaterial color={sensor.color} emissive={sensor.color} emissiveIntensity={1.6} />
+          </mesh>
+          <Line points={[[0, 0, 0], [0, 0.34, 0]]} color={sensor.color} lineWidth={1.2} transparent opacity={0.8} />
+          <HtmlLabel position={sensor.labelOffset || [0, 0.48, 0]} className="sensor-label compact">
+            <strong>{sensor.label}</strong>
+            <span>{sensor.value}</span>
           </HtmlLabel>
         </group>
       ))}
+    </group>
+  );
+}
+
+function ExceptionCallouts({ frame }) {
+  if (frame.phaseId !== 'dynamic-resequence') return null;
+  const scene = frame.exceptionScene;
+  return (
+    <group>
+      <HtmlLabel position={[WORLD.queueWindow.x, 1.62, LANES.lane1.z - 0.72]} className={scene.active ? 'exception-label red' : 'exception-label amber'}>
+        Scheduled first · ITV-122
+        <br />
+        {scene.planned.reason}
+      </HtmlLabel>
+      <HtmlLabel position={[4.0, 1.52, LANES.lane2.z - 0.72]} className="exception-label red">
+        Reject ITV-108
+        <br />
+        {scene.rejected.reason}
+      </HtmlLabel>
+      <HtmlLabel position={[WORLD.slot.x, 1.62, LANES.lane2.z + 0.72]} className="exception-label green">
+        Place here · ITV-115
+        <br />
+        {scene.fallback.reason}
+      </HtmlLabel>
+    </group>
+  );
+}
+
+function ZeroWaitGhosts({ frame }) {
+  if (frame.phaseId !== 'zero-wait') return null;
+  return (
+    <group>
+      {frame.zeroWaitCycles.map((cycle) => {
+        const container = frame.containers.find((item) => item.id === cycle.containerId);
+        return (
+          <group key={cycle.label}>
+            <Line
+              points={cycle.routePoints}
+              color={container?.color || '#38bdf8'}
+              lineWidth={cycle.active ? 2.2 : 1.5}
+              dashed
+              dashSize={0.2}
+              gapSize={0.12}
+              transparent
+              opacity={cycle.active ? 0.82 : 0.28}
+            />
+            {cycle.active ? (
+              <HtmlLabel position={[cycle.truckX, 0.52, cycle.truckZ - 0.58]} className="cycle-label compact active">
+                {cycle.label} · {cycle.routeStage}
+              </HtmlLabel>
+            ) : null}
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -545,8 +740,91 @@ function Block({
 
 function HtmlLabel({ children, position, className }) {
   return (
-    <Html zIndexRange={[1, 0]} position={position} transform distanceFactor={3.2} className={className}>
+    <Html zIndexRange={[3, 0]} position={position} center occlude={false} className={className} style={{ pointerEvents: 'none' }}>
       {children}
     </Html>
   );
+}
+
+function getFeedLabelPosition(node) {
+  const offsets = {
+    tos: [2.7, 0.48, 0.38],
+    plc: [-0.42, 0.48, 0.05],
+    gps: [4.15, 0.42, -0.18],
+    yard: [-0.72, 0.46, 0.18],
+    weather: [1.9, 0.42, 0.1]
+  };
+  const offset = offsets[node.id] || [0, 0.44, 0];
+  return [node.position[0] + offset[0], node.position[1] + offset[1], node.position[2] + offset[2]];
+}
+
+function getTruckLabelConfig(frame) {
+  const shortStatus = {
+    itv108: '20GP ready',
+    itv115: '40 ft standby',
+    itv122: 'Scheduled next'
+  };
+
+  const hidden = { show: false, showChassis: false };
+  const config = {
+    itv108: hidden,
+    itv115: hidden,
+    itv122: hidden
+  };
+
+  const phase = frame.phaseId;
+
+  const label = (truck, text, position = [0.05, 1.12, 0], showChassis = false, chassisLabel) => ({
+    show: true,
+    label: text,
+    position,
+    showChassis,
+    chassisLabel
+  });
+
+  if (phase === 'baseline-wait') {
+    config.itv108 = label(frame.trucks.itv108, 'ITV-108 · waiting');
+    return config;
+  }
+
+  if (['data-feeds', 'plc-trigger', 'look-ahead'].includes(phase)) {
+    config.itv108 = label(frame.trucks.itv108, phase === 'look-ahead' ? 'ITV-108 · compatible' : `ITV-108 · ${shortStatus.itv108}`);
+    return config;
+  }
+
+  if (phase === 'micro-slot') {
+    config.itv108 = label(frame.trucks.itv108, frame.microSlot.centered ? 'ITV-108 · centered' : 'ITV-108 · ETA route', [0.05, 1.12, 0], true, '20 ft');
+    return config;
+  }
+
+  if (['spreader-guidance', 'handoff'].includes(phase)) {
+    config.itv108 = label(frame.trucks.itv108, phase === 'handoff' && frame.trucks.itv108.loaded ? 'ITV-108 · loaded' : 'ITV-108 · receiving', [0.05, 1.12, 0], true, '20 ft');
+    return config;
+  }
+
+  if (phase === 'dynamic-resequence') {
+    return config;
+  }
+
+  if (phase === 'zero-wait') {
+    ['itv108', 'itv115', 'itv122'].forEach((key) => {
+      const truck = frame.trucks[key];
+      if (truck.target || truck.loaded) {
+        config[key] = label(truck, `${truck.id} · ${truck.loaded ? 'loaded' : 'in Slot B'}`);
+      }
+    });
+    return config;
+  }
+
+  if (phase === 'safety-modes') {
+    config.itv115 = label(frame.trucks.itv115, frame.scenario.id === 'normal' ? 'ITV-115 · ready' : 'ITV-115 · manual');
+    return config;
+  }
+
+  if (phase === 'feedback-loop') {
+    config.itv115 = label(frame.trucks.itv115, 'ITV-115 · logged');
+    return config;
+  }
+
+  return config;
 }
