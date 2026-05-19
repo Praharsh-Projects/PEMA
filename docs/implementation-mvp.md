@@ -5,6 +5,8 @@ This repository now contains two layers:
 - `Pitch simulator`: the public 3D storyboard used for presentation.
 - `Implementation MVP console`: a synthetic advisory engine that shows how ZERO-WAIT STS would work without real port feeds.
 
+For the full engineering blueprint, see [zero-wait-sts-project-plan.md](zero-wait-sts-project-plan.md).
+
 Open the implementation console locally at:
 
 ```text

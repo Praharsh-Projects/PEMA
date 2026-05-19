@@ -69,6 +69,8 @@ The implementation console is a synthetic-only working foundation for the real Z
 
 See [docs/implementation-mvp.md](docs/implementation-mvp.md) for the real-port integration path and the boundary between what the synthetic MVP can prove versus what still needs terminal data.
 
+For the complete project blueprint, see [docs/zero-wait-sts-project-plan.md](docs/zero-wait-sts-project-plan.md).
+
 ## Notes
 
 - The simulator uses simulated operational data, not live terminal feeds.
