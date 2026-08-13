@@ -1,0 +1,85 @@
+{
+  "artifact_label": "SYNTHETIC_OFFLINE_NOT_CHESSCON",
+  "study_id": "ZERO_WAIT_DES_V2_SYNTHETIC_2026_08_13",
+  "purpose": "Standalone, uncalibrated development simulation of a one-STS vehicle-readiness policy. It is not a terminal model or a native CHESSCON run.",
+  "replications_per_condition": 30,
+  "moves_per_replication": 120,
+  "resources": {
+    "sts_cranes": 1,
+    "internal_transfer_vehicles": 5,
+    "vehicle_capacity_teu": 1,
+    "yard_service_points": 1,
+    "physical_pre_stage_positions": 1
+  },
+  "controller": {
+    "r0_name": "R0_REACTIVE",
+    "r1_name": "R1_ZERO_WAIT",
+    "evaluation_interval_s": 5,
+    "reservation_lead_s": 10,
+    "candidate_horizon_tasks": 3,
+    "selection": "lowest ETA eligible vehicle; one physical staged vehicle; reactive fallback when staging cannot be reserved",
+    "forecast": "At move start, R1 uses a nominal 130 s STS-service forecast and reevaluates at 5 s ticks. It commits the physical stage reservation only at the final grid tick 10 to <15 s before that forecast. It does not observe the realised future STS service draw or a potential post-selection vehicle-delay event."
+  },
+  "conditions": {
+    "nominal": {
+      "description": "Nominal synthetic operating condition.",
+      "transport_mean_multiplier": 1.0,
+      "transport_variability_multiplier": 1.0,
+      "yard_mean_multiplier": 1.0,
+      "yard_variability_multiplier": 1.0,
+      "vehicle_delay_probability": 0.0,
+      "task_block_probability": 0.0
+    },
+    "congestion": {
+      "description": "Synthetic congestion condition: each transport/yard triangular mean is multiplied by 1.25 and each deviation from that original triangular mean is multiplied by 1.5.",
+      "transport_mean_multiplier": 1.25,
+      "transport_variability_multiplier": 1.5,
+      "yard_mean_multiplier": 1.25,
+      "yard_variability_multiplier": 1.5,
+      "vehicle_delay_probability": 0.0,
+      "task_block_probability": 0.0
+    },
+    "disruption": {
+      "description": "Synthetic congestion plus task blocks and vehicle-delay events.",
+      "transport_mean_multiplier": 1.25,
+      "transport_variability_multiplier": 1.5,
+      "yard_mean_multiplier": 1.25,
+      "yard_variability_multiplier": 1.5,
+      "vehicle_delay_probability": 0.1,
+      "task_block_probability": 0.05
+    }
+  },
+  "distributions_seconds": {
+    "sts_service": [115, 130, 145],
+    "loaded_empty_travel": [45, 60, 90],
+    "yard_service": [30, 45, 75],
+    "direct_reactive_handoff": [12, 15, 25],
+    "staged_handoff": [3, 5, 8],
+    "vehicle_delay": [60, 120, 240],
+    "task_block": [60, 120, 180]
+  },
+  "randomness": {
+    "method": "SHA-256-derived independent random streams keyed by condition, seed, task, vehicle, and event label. R0 and R1 consume the same exogenous tape for a condition and seed. Vehicle-delay draws materialise after vehicle selection and are not exposed to either policy's ETA rank.",
+    "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+  },
+  "metrics": {
+    "primary": "mean inter-cycle dwell over moves 2-120: sum(start of STS service_i - completion of STS service_(i-1)) / 119",
+    "secondary": [
+      "completion_time_s",
+      "effective_moves_per_hour",
+      "staged_vehicle_holding_s",
+      "stage_misses",
+      "fallbacks",
+      "blocked_task_recoveries"
+    ]
+  },
+  "analysis": {
+    "paired_difference_convention": "For dwell, improvement is R0 minus R1 so positive values indicate less R1 dwell. For throughput, delta is R1 minus R0 so positive values indicate higher R1 throughput.",
+    "bootstrap_resamples": 10000,
+    "bootstrap_seed": 20260813,
+    "timing_semantics": {
+      "direct_reactive_handoff": "Reactive post-demand vehicle-presentation delay. It is the same presentation primitive R1 may complete before the demand point.",
+      "staged_handoff": "Common final physical handoff/attachment primitive used by both R0 and R1 after a vehicle is present. It is not an R1-only faster transfer input."
+    }
+  }
+}

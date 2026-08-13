@@ -1,0 +1,14 @@
+{
+  "artifact_label": "SYNTHETIC_OFFLINE_NOT_CHESSCON",
+  "checks": {
+    "claim_scan_violations": 0,
+    "materialized_tape_rows": 54000,
+    "planned_runs": 180,
+    "raw_moves": 21600,
+    "raw_runs": 180,
+    "release_archive_errors": 0
+  },
+  "errors": [],
+  "passed": true,
+  "study_id": "ZERO_WAIT_DES_V2_SYNTHETIC_2026_08_13"
+}

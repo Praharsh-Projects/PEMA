@@ -1,82 +1,133 @@
-# PEMA ZERO-WAIT STS 3D Pitch Simulator
+# PEMA ZERO-WAIT STS
 
-React/Vite + Three.js simulator for demonstrating the PEMA ZERO-WAIT STS proposal. The project turns a terminal-operations innovation concept into a workshop-ready visual demo: baseline crane waiting, live-data style inputs, PLC trigger, look-ahead ranking, micro-slot vehicle positioning, dynamic resequencing, spreader guidance, handoff, safety modes, and feedback logging.
+ZERO-WAIT STS is an advisory coordination concept for reducing avoidable
+inter-cycle dwell between ship-to-shore (STS) crane moves. This repository
+keeps the presentation prototype, synthetic simulation evidence, and
+CHESSCON integration work explicitly separate.
 
-The simulator uses simulated operational data. It is built for explanation, pitch storytelling, and scenario walkthroughs rather than live terminal control.
+## Evidence boundary
 
-## Why This Exists
+Nothing in this repository is a terminal-performance result, a field
+deployment, or a native CHESSCON ZERO-WAIT treatment result. ZERO-WAIT is
+advisory in concept: it proposes readiness and fallback choices; operators and
+existing safety systems remain in control.
 
-The PEMA Global Student Challenge proposal needed a way to make the idea inspectable for non-specialist and technical audiences. This app shows the operational sequence visually so viewers can compare the baseline state with the proposed zero-wait coordination flow.
+| Track | Location | What it is | What it is not |
+| --- | --- | --- | --- |
+| Python synthetic DES | [evidence/synthetic-des-v2](evidence/synthetic-des-v2) | A standalone, uncalibrated, offline Python discrete-event study labelled SYNTHETIC_OFFLINE_NOT_CHESSCON | A calibrated terminal model or CHESSCON R0/R1 result |
+| Advisory presentation demo | [src](src) and [docs/implementation-mvp.md](docs/implementation-mvp.md) | A React/Vite/Three.js storyboard and synthetic advisory-engine MVP | A live TOS, PLC, GPS, or safety-system integration |
+| CHESSCON readiness | [evidence/chesscon-integration-readiness](evidence/chesscon-integration-readiness) | Curated integration-readiness status and provenance | Evidence that ZERO-WAIT was installed, bound, Project-Checked, or executed natively |
 
-Useful contexts:
+## Public project access
 
-- innovation workshops and pitch sessions
-- demo-led explanation of AI-assisted sequencing logic
-- discussion of safe fallback states and dynamic resequencing
-- early-stage validation of operational assumptions before production integration
+The public, versioned evidence entry point is
+[evidence/synthetic-des-v2](evidence/synthetic-des-v2). The full raw synthetic
+data archive is deliberately excluded from Git history and is provided as a
+checksummed asset in the
+[GitHub Release for zero-wait-synthetic-des-v1.0.0](https://github.com/Praharsh-Projects/PEMA/releases/tag/zero-wait-synthetic-des-v1.0.0).
 
-## Implemented Demo Flow
+These named public links are appropriate for a public or camera-ready paper,
+but must not be cited in a double-blind submission. The blinded submission uses
+its separately frozen anonymous supplementary package.
 
-- baseline crane waiting and vehicle-positioning bottleneck
-- incoming operational signals represented as simulated live feeds
-- PLC-style trigger event for coordination start
-- look-ahead ranking for next vehicle or task candidate
-- micro-slot positioning to reduce crane idle time
-- dynamic resequencing when conditions change
-- spreader guidance, handoff, and feedback logging
-- safety-mode visualization for constrained conditions
+## Python synthetic DES
 
-## Stack
+The curated repository includes source code, tests, configuration, aggregate
+results, figures, verification output, and SHA-256 manifests in
+[evidence/synthetic-des-v2](evidence/synthetic-des-v2). The release asset
+contains the full raw per-move and per-run traces plus the materialized random
+tape. Its expected SHA-256 is recorded in
+[RELEASE_ASSET_POINTER.md](evidence/synthetic-des-v2/RELEASE_ASSET_POINTER.md).
 
-- React
-- Vite
-- Three.js / React Three Fiber
-- @react-three/drei
-- lucide-react
+Verify the curated snapshot with Python 3.11+ and Pillow:
 
-## Requirements
+~~~
+python3 -m pip install -r evidence/synthetic-des-v2/requirements.txt
+python3 scripts/verify_curated_synthetic_des_release.py
+~~~
 
-- Node.js 20 or newer
-- npm
+To reproduce the complete study locally (which writes ignored raw traces):
 
-## Run Locally
+~~~
+cd evidence/synthetic-des-v2/study
+python3 -m unittest discover -s tests -v
+python3 run_study.py
+python3 build_release.py
+python3 verify_package.py
+~~~
 
-Install dependencies:
+The experiment uses 3 synthetic conditions × 30 paired replications × 2
+policies = 180 terminating runs. It uses policy-independent, SHA-256-keyed
+random tapes so paired policies see matched exogenous inputs. Potential
+vehicle-delay draws materialize after vehicle selection rather than being
+visible to ETA ranking. Results are synthetic simulation summaries only, not
+terminal-performance confidence intervals.
 
-```bash
+The curated repository check validates hashes, claim boundaries, aggregate
+records, and the preserved full-study verification report. It deliberately does
+not claim to revalidate raw traces excluded from Git.
+
+Maintainers can stage a vetted build without copying raw traces into Git:
+
+~~~
+python3 scripts/stage_synthetic_des_release.py \
+  --source /path/to/build/synthetic_des_release \
+  --raw-archive /path/to/zero-wait-synthetic-des-v2-raw-data.zip
+~~~
+
+The staging command rejects a source that lacks the required
+SYNTHETIC_OFFLINE_NOT_CHESSCON label or contains obsolete “pre-registered”
+wording.
+
+## Advisory presentation demo
+
+The web application is a React/Vite + Three.js storyboard and synthetic
+advisory-engine MVP. It represents synthetic feeds and recommendations rather
+than connecting to a terminal. It can be used for workshops and pitch
+walkthroughs of look-ahead ranking, micro-slot positioning, resequencing,
+handoff, safety-mode visualization, and feedback logging.
+
+Requirements: Node.js 20+ and npm.
+
+~~~
 npm install
-```
-
-Start the development server:
-
-```bash
 npm run dev
-```
+~~~
 
-Open the app in a browser:
+Open the displayed Vite URL, normally http://localhost:5173/. The synthetic
+implementation console is at http://localhost:5173/#implementation.
 
-```text
-http://localhost:5173/
-```
+Useful checks:
 
-If port `5173` is already in use, Vite prints the alternate local URL in the terminal.
+~~~
+npm test
+npm run quality
+~~~
 
-## Useful Commands
+npm run quality runs the high-severity dependency audit and a production
+build. For the proposed real-port integration path and safety boundary, see
+[docs/implementation-mvp.md](docs/implementation-mvp.md) and
+[docs/zero-wait-sts-project-plan.md](docs/zero-wait-sts-project-plan.md).
 
-Build the production bundle:
+## CHESSCON integration-readiness work
 
-```bash
-npm run build
-```
+The CHESSCON materials are documented as integration-readiness work only. The
+currently admitted evidence supports safe-copy and readiness-path activities;
+it does **not** establish a native ZERO-WAIT installation, controller/TOS
+binding, Project Check, paired baseline/treatment run, or native ZERO-WAIT
+result. The curated record is dossier-only readiness evidence and does not
+include an unverified native runtime diagnostic.
 
-Preview the production build:
+See [evidence/chesscon-integration-readiness](evidence/chesscon-integration-readiness)
+for the claim boundary, dossier-derived status matrix, and owner-authorized
+contextual screenshot. The image is illustrative only, not a treatment or
+performance result.
 
-```bash
-npm run preview
-```
+## Licenses
 
-## Repository Notes
+- Source code: [MIT License](LICENSE).
+- Documentation and synthetic data: [CC BY 4.0](LICENSE-DATA-DOCS.md).
+- The owner-authorized CHESSCON screenshot is excluded from both licences; see
+  its [separate rights/provenance record](evidence/chesscon-integration-readiness/assets/SCREENSHOT_RIGHTS_AND_PROVENANCE.md).
 
-- `zero_wait_sts_simulation.html` is kept as the legacy single-file reference.
-- Open the Vite server URL instead of opening `index.html` directly as a local file.
-- The simulator is a concept-demonstration artifact; it does not ingest live terminal feeds or control physical equipment.
+zero_wait_sts_simulation.html remains a legacy single-file reference.

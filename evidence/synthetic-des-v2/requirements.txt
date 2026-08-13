@@ -1,0 +1,2 @@
+# Pinned figure-generation dependency for the reproducible synthetic DES release.
+Pillow==12.1.0
