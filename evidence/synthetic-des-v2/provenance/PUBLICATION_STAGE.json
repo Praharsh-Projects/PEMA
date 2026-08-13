@@ -1,0 +1,43 @@
+{
+  "artifact_label": "SYNTHETIC_OFFLINE_NOT_CHESSCON",
+  "publication_transformations": {
+    "provenance/RELEASE_PROVENANCE.md": "Rebased its source-relative configuration reference to the curated study path; original source identity remains in source_SHA256_MANIFEST.csv."
+  },
+  "raw_release_asset": {
+    "bytes": 6648402,
+    "filename": "ZERO_WAIT_SYNTHETIC_DES_V2_FULL_RAW_DATA.zip",
+    "sha256": "4f599e3f68ed095e4ffd44ec3bb3b27d858f5f517bdf09a592d34daa70c8468b"
+  },
+  "source_manifest_sha256": "3a70c428b7a6afa8332e07bf700a712a2cb8aa200854d285f51be49cef189515",
+  "source_study_id": "ZERO_WAIT_DES_V2_SYNTHETIC_2026_08_13",
+  "tracked_public_files": [
+    "provenance/CURATED_PUBLIC_SHA256_MANIFEST.csv",
+    "provenance/RAW_DATA_ZIP_MANIFEST.csv",
+    "provenance/RELEASE_PROVENANCE.md",
+    "provenance/generated_SHA256_MANIFEST.csv",
+    "provenance/source_SHA256_MANIFEST.csv",
+    "requirements.txt",
+    "results/RELEASE_SUMMARY.json",
+    "results/VERIFICATION_REPORT.json",
+    "results/failure_records.json",
+    "results/figures/figure_1_dwell_comparison.png",
+    "results/figures/figure_2_secondary_metrics.png",
+    "results/paired_summary.csv",
+    "results/study_metadata.json",
+    "study/CLAIM_BOUNDARY.md",
+    "study/SHA256_MANIFEST.csv",
+    "study/build_release.py",
+    "study/config/scenario_manifest.json",
+    "study/run_study.py",
+    "study/tests/test_claim_scan.py",
+    "study/tests/test_zero_wait_des.py",
+    "study/verify_package.py",
+    "study/zero_wait_des.py"
+  ],
+  "untracked_raw_files": [
+    "raw_per_move.*",
+    "raw_per_run.*",
+    "materialized_random_tape.csv",
+    "ZERO_WAIT_SYNTHETIC_DES_V2_FULL_RAW_DATA.zip"
+  ]
+}

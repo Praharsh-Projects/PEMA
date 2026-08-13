@@ -5,3 +5,23 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Local Python/DES environments and test output
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+*.egg-info/
+
+# Raw synthetic-DES traces belong in a checksummed GitHub Release asset, never Git.
+evidence/synthetic-des-v2/study/generated/
+evidence/synthetic-des-v2/study/release/
+evidence/synthetic-des-v2/release-assets/
+evidence/synthetic-des-v2/**/*.zip
+evidence/synthetic-des-v2/**/raw_per_move.*
+evidence/synthetic-des-v2/**/raw_per_run.*
+evidence/synthetic-des-v2/**/materialized_random_tape.csv

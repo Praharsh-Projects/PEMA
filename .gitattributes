@@ -1,0 +1,8 @@
+# Preserve exact source bytes for evidence and release manifests across platforms.
+*.csv -text whitespace=-trailing-space
+
+# Do not apply text conversion to published visual or archive assets.
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.zip -text

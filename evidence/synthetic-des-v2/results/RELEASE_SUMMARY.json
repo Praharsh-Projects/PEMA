@@ -1,0 +1,25 @@
+{
+  "artifact_label": "SYNTHETIC_OFFLINE_NOT_CHESSCON",
+  "claim_boundary": "Offline, uncalibrated synthetic DES only; not a terminal result or CHESSCON result.",
+  "execution": {
+    "completed_runs": 180,
+    "failed_runs": 0,
+    "materialized_random_tape_records": 54000,
+    "paired_summary_records": 21,
+    "planned_runs": 180,
+    "raw_per_move_records": 21600,
+    "raw_per_run_records": 180
+  },
+  "pre_specification": "config/scenario_manifest.json",
+  "raw_data_archive": {
+    "bytes": 6648402,
+    "content_manifest": "release/RAW_DATA_ZIP_MANIFEST.csv",
+    "files": 11,
+    "path": "release/ZERO_WAIT_SYNTHETIC_DES_V2_FULL_RAW_DATA.zip",
+    "sha256": "4f599e3f68ed095e4ffd44ec3bb3b27d858f5f517bdf09a592d34daa70c8468b"
+  },
+  "release_built_utc": "2026-08-13T22:47:46+00:00",
+  "release_id": "ZERO_WAIT_SYNTHETIC_DES_V2_RELEASE_2026_08_14",
+  "study_id": "ZERO_WAIT_DES_V2_SYNTHETIC_2026_08_13",
+  "verification_command": "python3 verify_package.py"
+}
